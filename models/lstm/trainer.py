@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 
 
-class TransformerTrainer:
+class LSTMTrainer:
 
     def __init__(
 
@@ -13,7 +13,7 @@ class TransformerTrainer:
 
         config,
 
-        train_dataset,
+        dataset
 
     ):
 
@@ -23,22 +23,20 @@ class TransformerTrainer:
 
         self.loader = DataLoader(
 
-            train_dataset,
+            dataset,
 
             batch_size=config.batch_size,
 
             shuffle=True
-
         )
 
         self.loss_fn = torch.nn.MSELoss()
 
         self.optimizer = torch.optim.Adam(
 
-            model.parameters(),
+            self.model.parameters(),
 
             lr=config.learning_rate
-
         )
 
     def train(self):
@@ -47,19 +45,13 @@ class TransformerTrainer:
 
         for epoch in range(self.config.epochs):
 
-            loss_sum = 0
+            epoch_loss = 0
 
             for X, y in self.loader:
 
                 pred = self.model(X)
 
-                loss = self.loss_fn(
-
-                    pred.squeeze(),
-
-                    y
-
-                )
+                loss = self.loss_fn(pred, y)
 
                 self.optimizer.zero_grad()
 
@@ -67,13 +59,17 @@ class TransformerTrainer:
 
                 self.optimizer.step()
 
-                loss_sum += loss.item()
+                epoch_loss += loss.item()
 
             print(
 
-                f"Epoch {epoch+1}: "
+                f"Epoch "
 
-                f"{loss_sum/len(self.loader):.6f}"
+                f"{epoch+1}/"
 
+                f"{self.config.epochs}"
+
+                f" Loss: "
+
+                f"{epoch_loss/len(self.loader):.6f}"
             )
-            
