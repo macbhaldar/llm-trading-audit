@@ -16,3 +16,4 @@ class ConsistencyChecker:
         )
 
         return counts.max() / len(predictions)
+    

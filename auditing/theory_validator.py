@@ -25,3 +25,4 @@ class TheoryValidator:
             score -= 0.20
 
         return max(score, 0)
+    
