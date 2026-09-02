@@ -1,12 +1,9 @@
 import pandas as pd
 
-
 class CounterfactualGenerator:
-
     """
     Simple rule-based counterfactual generator.
     """
-
     @staticmethod
     def generate(
         sample,

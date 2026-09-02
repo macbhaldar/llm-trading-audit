@@ -1,8 +1,6 @@
 import numpy as np
 
-
 class PortfolioMetrics:
-
     @staticmethod
     def beta(
         portfolio,
@@ -17,7 +15,6 @@ class PortfolioMetrics:
         var = np.var(
             benchmark
         )
-
         return cov / var
 
     @staticmethod
@@ -33,27 +30,15 @@ class PortfolioMetrics:
         )
 
         return (
-
             np.mean(portfolio)
-
             -
-
             risk_free
-
             -
-
             beta
-
             *
-
             (
-
                 np.mean(benchmark)
-
                 -
-
                 risk_free
-
             )
-
         )

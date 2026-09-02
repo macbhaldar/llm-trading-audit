@@ -2,12 +2,9 @@ import pandas as pd
 
 
 class MarketRegimeDetector:
-
     @staticmethod
     def detect(df: pd.DataFrame):
-
         df = df.copy()
-
         regime = []
 
         for r in df["Return_5D"]:

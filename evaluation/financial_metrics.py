@@ -2,7 +2,6 @@ import numpy as np
 
 
 class FinancialMetrics:
-
     @staticmethod
     def cumulative_return(returns):
 

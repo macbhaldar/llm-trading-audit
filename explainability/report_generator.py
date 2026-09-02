@@ -1,9 +1,7 @@
 import json
 from pathlib import Path
 
-
 class ExplainabilityReport:
-
     @staticmethod
     def save(
         report,
@@ -11,9 +9,7 @@ class ExplainabilityReport:
     ):
 
         Path(path).parent.mkdir(
-
             parents=True,
-
             exist_ok=True,
         )
 

@@ -1,8 +1,6 @@
 import pandas as pd
 
-
 class DatasetMerger:
-
     @staticmethod
     def merge(
         prices,
@@ -15,7 +13,6 @@ class DatasetMerger:
         df = prices.copy()
 
         if news is not None:
-
             df = df.merge(
                 news,
                 on=["Date", "Ticker"],
@@ -23,7 +20,6 @@ class DatasetMerger:
             )
 
         if macro is not None:
-
             df = df.merge(
                 macro,
                 on="Date",
@@ -31,7 +27,6 @@ class DatasetMerger:
             )
 
         if predictions is not None:
-
             df = df.merge(
                 predictions,
                 on=["Date", "Ticker"],
@@ -39,7 +34,6 @@ class DatasetMerger:
             )
 
         if portfolio is not None:
-
             df = df.merge(
                 portfolio,
                 on=["Date", "Ticker"],

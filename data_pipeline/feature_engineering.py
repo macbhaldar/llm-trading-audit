@@ -2,16 +2,12 @@ import pandas as pd
 
 
 class FeatureEngineer:
-
     @staticmethod
     def create(df: pd.DataFrame):
-
         df = df.copy()
-
         df["Return_1D"] = df["Close"].pct_change()
-
         df["Return_5D"] = df["Close"].pct_change(5)
-
+        
         df["MA20"] = (
             df["Close"]
             .rolling(20)

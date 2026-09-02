@@ -3,7 +3,6 @@ import numpy as np
 
 
 class AttentionVisualizer:
-
     @staticmethod
     def plot(
         attention_matrix,

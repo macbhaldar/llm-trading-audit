@@ -1,35 +1,21 @@
 import re
 
-
 class LLMReasoningAnalyzer:
-
     POSITIVE = {
-
         "growth",
-
         "profit",
-
         "bullish",
-
         "momentum",
-
         "strong",
-
         "uptrend",
     }
 
     NEGATIVE = {
-
         "loss",
-
         "bearish",
-
         "weak",
-
         "risk",
-
         "downtrend",
-
         "decline",
     }
 
@@ -57,7 +43,6 @@ class LLMReasoningAnalyzer:
         )
 
         return {
-
             "PositiveTerms":
             positive,
 

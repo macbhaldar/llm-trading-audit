@@ -1,8 +1,6 @@
 import pandas as pd
 
-
 class Backtester:
-
     def run(
         self,
         prices,
@@ -18,13 +16,9 @@ class Backtester:
         )
 
         df["StrategyReturn"] = (
-
             df["Signal"].shift(1)
-
             *
-
             df["MarketReturn"]
-
         )
 
         return df

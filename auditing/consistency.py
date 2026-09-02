@@ -2,12 +2,9 @@ import numpy as np
 
 
 class ConsistencyChecker:
-
     @staticmethod
     def agreement(predictions):
-
         if len(predictions) == 0:
-
             return 0
 
         values, counts = np.unique(

@@ -5,17 +5,12 @@ from sklearn.metrics import (
     f1_score,
 )
 
-
 class ClassificationMetrics:
-
     @staticmethod
     def evaluate(y_true, y_pred):
-
         return {
-
             "Accuracy":
             accuracy_score(y_true, y_pred),
-
             "Precision":
             precision_score(
                 y_true,
@@ -23,7 +18,6 @@ class ClassificationMetrics:
                 average="weighted",
                 zero_division=0,
             ),
-
             "Recall":
             recall_score(
                 y_true,
@@ -31,7 +25,6 @@ class ClassificationMetrics:
                 average="weighted",
                 zero_division=0,
             ),
-
             "F1":
             f1_score(
                 y_true,

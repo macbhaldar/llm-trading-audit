@@ -9,15 +9,11 @@ class GTGenerator:
     """
 
     def __init__(self, horizon=5):
-
         self.horizon = horizon
 
     def generate(self, predictions, prices):
-
         df = predictions.copy()
-
         price = prices.copy()
-
         price = price.sort_values(["Ticker", "Date"])
 
         future_close = (
@@ -46,9 +42,7 @@ class GTGenerator:
         ) / merged["Close"]
 
         def evaluate(row):
-
             pred = row["Recommendation"]
-
             ret = row["ActualReturn"]
 
             if pd.isna(ret):

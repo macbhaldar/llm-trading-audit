@@ -4,7 +4,6 @@ from .financial_metrics import FinancialMetrics
 
 
 class EvaluationMetrics:
-
     @staticmethod
     def regression(
         y_true,

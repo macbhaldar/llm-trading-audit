@@ -1,6 +1,5 @@
 from scipy.stats import ks_2samp
 
-
 class DriftDetector:
 
     @staticmethod
@@ -16,10 +15,8 @@ class DriftDetector:
         )
 
         return {
-
             "statistic": statistic,
-
             "p_value": p,
-
             "drift": p < alpha
         }
+    
