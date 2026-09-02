@@ -1,8 +1,8 @@
 # Auditing LLM Trading: Bridging Theory and Market Reality with GT Tables
 
-> A research-grade framework for auditing Large Language Model (LLM) trading recommendations by comparing model predictions with Ground Truth (GT) market outcomes, financial theory, and risk constraints.
+> The Auditing LLM Trading Dataset repository provides an end-to-end benchmarking framework designed to evaluate, audit, and compare Large Language Models (LLMs) against traditional machine learning and deep learning models in financial trading environments. The platform enables rigorous inspection of trading decisions, trust scores, and model performance across varying market regimes.
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)
 ![Status](https://img.shields.io/badge/Status-Under%20Development-orange.svg)
 ![Research](https://img.shields.io/badge/Research-LLM%20Auditing-red.svg)
 
