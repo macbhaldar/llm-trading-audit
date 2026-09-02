@@ -1,79 +1,32 @@
 """
-Dashboard Visualizations
-Part 1 - Base Visualizer + Market Charts
+Market Visualizations : Charts related to financial markets.
 """
 
-from typing import Optional
-import numpy as np
+from turtle import title
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from .base import BaseVisualizer
 
-from dashboard.config import (
-    PRIMARY_COLOR,
-    SECONDARY_COLOR,
-    SUCCESS_COLOR,
-    ERROR_COLOR,
-    PLOTLY_TEMPLATE,
-    DEFAULT_HEIGHT,
-)
 
-class DashboardVisualizer:
+class MarketVisualizer(BaseVisualizer):
     """
-    Reusable Plotly visualization library.
-    Every method returns a Plotly Figure.
+    Market Charts
     """
 
-    def __init__(self):
-        self.template = PLOTLY_TEMPLATE
-        self.primary = PRIMARY_COLOR
-        self.secondary = SECONDARY_COLOR
-        self.success = SUCCESS_COLOR
-        self.error = ERROR_COLOR
-
-    
-    # Internal Helpers
-    
-    def _layout(
-        self,
-        fig,
-        title: str,
-        height: int = DEFAULT_HEIGHT,
-    ):
-
-        fig.update_layout(
-            template=self.template,
-            title=title,
-            height=height,
-            legend=dict(
-                orientation="h",
-                y=1.02,
-                x=1,
-                xanchor="right",
-            ),
-
-            margin=dict(
-                l=40,
-                r=20,
-                t=60,
-                b=40,
-            ),
-        )
-
-        return fig
-
-    
     # Line Chart
-
     def line_chart(
         self,
-        df,
-        x,
-        y,
+        df: pd.DataFrame,
+        x="Date",
+        y="Close",
         color=None,
-        title="Line Chart",
+        title="Price History",
     ):
+
+        self.validate_columns(df, [x, y])
 
         fig = px.line(
             df,
@@ -82,68 +35,145 @@ class DashboardVisualizer:
             color=color,
             markers=True,
         )
-        return self._layout(fig, title)
 
-    
+        return self.apply_layout(
+            fig,
+            title,
+        )
+
     # Candlestick Chart
-    
+
     def candlestick(
         self,
         df,
         title="Candlestick",
     ):
-        
-        fig = go.Figure()
-        fig.add_trace(
-            go.Candlestick(
+
+        self.validate_columns(
+            df,
+            [
+                "Date",
+                "Open",
+                "High",
+                "Low",
+                "Close",
+            ],
+        )
+
+        fig = go.Figure(
+            data=[
+                go.Candlestick(
+                    x=df["Date"],
+                    open=df["Open"],
+                    high=df["High"],
+                    low=df["Low"],
+                    close=df["Close"],
+                    increasing_line_color=self.success,
+                    decreasing_line_color=self.error,
+                )
+            ]
+        )
+
+        return self.apply_layout(
+            fig,
+            title,
+            650,
+        )
+
+    # OHLC Chart
+
+    def ohlc_chart(
+        self,
+        df,
+        title="OHLC",
+    ):
+
+        self.validate_columns(
+            df,
+            [
+                "Date",
+                "Open",
+                "High",
+                "Low",
+                "Close",
+            ],
+        )
+
+        fig = go.Figure(
+            go.Ohlc(
                 x=df["Date"],
                 open=df["Open"],
                 high=df["High"],
                 low=df["Low"],
                 close=df["Close"],
-                increasing_line_color=self.success,
-                decreasing_line_color=self.error,
-                name="Price",
             )
         )
-        return self._layout(fig, title, 600)
+        return self.apply_layout(
+            fig,
+            title,
+        )
 
-    
     # Volume Chart
-    
+
     def volume_chart(
         self,
         df,
-        title="Trading Volume",
+        title="Volume",
     ):
+
+        self.validate_columns(
+            df,
+            [
+                "Date",
+                "Volume",
+            ],
+        )
 
         fig = px.bar(
             df,
             x="Date",
             y="Volume",
         )
-        return self._layout(fig, title)
 
-    
-    # Daily Returns
-    
+        return self.apply_layout(
+            fig,
+            title,
+        )
+
+    # Daily Returns Chart
+
     def returns_chart(
         self,
         df,
         title="Daily Returns",
     ):
 
+        self.validate_columns(
+            df,
+            [
+                "Date",
+                "Close",
+            ],
+        )
+
         data = df.copy()
-        data["Return"] = data["Close"].pct_change()
+
+        data["Return"] = (
+            data["Close"]
+            .pct_change()
+        )
 
         fig = px.line(
             data,
             x="Date",
             y="Return",
         )
-        return self._layout(fig, title)
 
-    
+        return self.apply_layout(
+            fig,
+            title,
+        )
+
     # Histogram
     
     def return_distribution(
@@ -162,15 +192,23 @@ class DashboardVisualizer:
         )
         return self._layout(fig, title)
 
-    
-    # Moving Average
 
-    def moving_average_chart(
+    # Moving Average Chart
+
+    def moving_average(
         self,
         df,
         window=20,
         title="Moving Average",
     ):
+
+        self.validate_columns(
+            df,
+            [
+                "Date",
+                "Close",
+            ],
+        )
 
         data = df.copy()
         data["MA"] = (
@@ -185,9 +223,7 @@ class DashboardVisualizer:
                 x=data["Date"],
                 y=data["Close"],
                 name="Close",
-                line=dict(
-                    color=self.primary
-                ),
+                mode="lines",
             )
         )
 
@@ -196,36 +232,45 @@ class DashboardVisualizer:
                 x=data["Date"],
                 y=data["MA"],
                 name=f"MA {window}",
-                line=dict(
-                    color=self.secondary
-                ),
+                mode="lines",
             )
         )
 
-        return self._layout(fig, title)
+        return self.apply_layout(
+            fig,
+            title,
+        )
 
-    
-    # Price + Volume
+    # Price & Volume Chart
 
-    def price_volume_chart(
+    def price_volume(
         self,
         df,
         title="Price & Volume",
     ):
 
+        self.validate_columns(
+            df,
+            [
+                "Date",
+                "Close",
+                "Volume",
+            ],
+        )
+
         fig = make_subplots(
             rows=2,
             cols=1,
             shared_xaxes=True,
-            vertical_spacing=0.04,
             row_heights=[0.70, 0.30],
+            vertical_spacing=0.03,
         )
 
         fig.add_trace(
+
             go.Scatter(
                 x=df["Date"],
                 y=df["Close"],
-                mode="lines",
                 name="Close",
             ),
             row=1,
@@ -233,6 +278,7 @@ class DashboardVisualizer:
         )
 
         fig.add_trace(
+
             go.Bar(
                 x=df["Date"],
                 y=df["Volume"],
@@ -241,26 +287,30 @@ class DashboardVisualizer:
             row=2,
             col=1,
         )
-        return self._layout(fig, title, 650)
 
-    
-    # Market Regime
-    
-    def market_regime_chart(
-        self,
-        df,
-        regime_column="MarketRegime",
-        title="Market Regime",
-    ):
-
-        fig = px.scatter(
-            df,
-            x="Date",
-            y="Close",
-            color=regime_column,
+        return self.apply_layout(
+            fig,
+            title,
+            700,
         )
 
-        return self._layout(fig, title)
+    # Market Regime
+        
+    def market_regime_chart(
+            self,
+            df,
+            regime_column="MarketRegime",
+            title="Market Regime",
+        ):
+    
+            fig = px.scatter(
+                df,
+                x="Date",
+                y="Close",
+                color=regime_column,
+            )
+    
+            return self._layout(fig, title)
 
     
     # Correlation Heatmap
@@ -269,13 +319,13 @@ class DashboardVisualizer:
         self,
         df,
         title="Correlation Matrix",
-    ):
+        ):
 
-        corr = (
-            df
-            .select_dtypes("number")
-            .corr()
+        numeric = df.select_dtypes(
+            include="number"
         )
+
+        corr = numeric.corr()
 
         fig = px.imshow(
             corr,
@@ -283,17 +333,19 @@ class DashboardVisualizer:
             aspect="auto",
         )
 
-        return self._layout(fig, title)
+        return self.apply_layout(
+            fig,
+            title,
+        )
 
-    
     # OHLC Chart
-
+    
     def ohlc_chart(
         self,
         df,
         title="OHLC",
     ):
-
+    
         fig = go.Figure(
             go.Ohlc(
                 x=df["Date"],
@@ -306,16 +358,30 @@ class DashboardVisualizer:
         return self._layout(fig, title)
 
     
-    # Rolling Volatility
-    
+    # Rolling Volatility Chart
+
     def rolling_volatility(
         self,
         df,
         window=20,
         title="Rolling Volatility",
     ):
+
+        self.validate_columns(
+            df,
+            [
+                "Date",
+                "Close",
+            ],
+        )
+
         data = df.copy()
-        data["Return"] = data["Close"].pct_change()
+
+        data["Return"] = (
+            data["Close"]
+            .pct_change()
+        )
+
         data["Volatility"] = (
             data["Return"]
             .rolling(window)
@@ -327,16 +393,30 @@ class DashboardVisualizer:
             x="Date",
             y="Volatility",
         )
-        return self._layout(fig, title)
 
+        return self.apply_layout(
+            fig,
+            title,
+        )
 
-    # Rolling Mean
+    # Rolling Mean Chart
+
     def rolling_mean(
         self,
         df,
         window=20,
         title="Rolling Mean",
     ):
+
+        self.validate_columns(
+            df,
+
+            [
+                "Date",
+                "Close",
+            ],
+        )
+
         data = df.copy()
 
         data["RollingMean"] = (
@@ -344,10 +424,14 @@ class DashboardVisualizer:
             .rolling(window)
             .mean()
         )
+
         fig = px.line(
             data,
             x="Date",
             y="RollingMean",
         )
-        return self._layout(fig, title)
-    
+
+        return self.apply_layout(
+            fig,
+            title,
+        )
