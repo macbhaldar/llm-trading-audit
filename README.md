@@ -1,17 +1,12 @@
-# LLM Trading Dataset Auditing
-> **This project is a quality-control system for financial AI: the AI
-> makes the trading recommendation, while an independent system checks
-> whether the recommendation is actually correct, well-supported,
-> properly calibrated, and safe enough to trust.**
+# Auditing LLM Trading: Bridging Theory and Market Reality with GT Tables
 
-## Auditing AI Financial Decisions Before They Are Trusted
+> A research-grade framework for auditing Large Language Model (LLM) trading recommendations by comparing model predictions with Ground Truth (GT) market outcomes, financial theory, and risk constraints.
 
-> **Project concept:** An independent audit and evaluation framework
-> that tests whether LLM-generated trading decisions are accurate,
-> financially rational, well-calibrated, evidence-supported, and
-> consistent with risk-management principles.
+![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
+![Status](https://img.shields.io/badge/Status-Under%20Development-orange.svg)
+![Research](https://img.shields.io/badge/Research-LLM%20Auditing-red.svg)
 
-------------------------------------------------------------------------
+---
 
 ## Overview
 
