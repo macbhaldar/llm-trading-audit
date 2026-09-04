@@ -1,6 +1,5 @@
 """
-GT Table Visualizations (Part 1) : Base GTTableVisualizer class, interactive GT table, 
-filtering, searching, trust highlighting, export.
+GT Table Visualizations
 """
 
 from typing import List, Optional
@@ -331,3 +330,636 @@ class GTTableVisualizer(BaseVisualizer):
         st.divider()
         self.show_table(filtered)
         self.download_button(filtered)
+
+# Prediction Accuracy
+
+def prediction_accuracy(
+    self,
+    df,
+):
+    correct = (
+        df["Prediction"] ==
+        df["GroundTruth"]
+    ).sum()
+
+    total = len(df)
+
+    return round(
+        correct / total,
+        4,
+    )
+
+# Agreement Column
+
+def add_agreement_column(
+    self,
+    df,
+):
+
+    data = df.copy()
+    data["Agreement"] = np.where(
+        data["Prediction"] ==
+        data["GroundTruth"],
+        "Correct",
+        "Incorrect",
+    )
+    return data
+
+# Accuracy by Model
+
+def accuracy_by_model(
+    self,
+    df,
+):
+    data = self.add_agreement_column(df)
+    result = (
+        data
+        .groupby("Model")["Agreement"]
+        .apply(
+            lambda x:
+            (x == "Correct").mean()
+        )
+        .reset_index()
+    )
+    result.columns = [
+        "Model",
+        "Accuracy",
+    ]
+    return result
+
+
+# Accuracy by Ticker
+
+def accuracy_by_ticker(
+    self,
+    df,
+):
+    data = self.add_agreement_column(df)
+    result = (
+        data
+        .groupby("Ticker")["Agreement"]
+        .apply(
+            lambda x:
+            (x == "Correct").mean()
+        )
+        .reset_index()
+    )
+    result.columns = [
+        "Ticker",
+        "Accuracy",
+    ]
+    return result
+
+
+# Confusion Matrix
+
+def confusion_matrix(
+    self,
+    df,
+):
+    return pd.crosstab(
+        df["GroundTruth"],
+        df["Prediction"],
+        margins=True,
+    )
+
+
+# GT vs Prediction Table
+
+def comparison_table(
+    self,
+    df,
+):
+    data = self.add_agreement_column(df)
+    return data[
+        [
+            "Date",
+            "Ticker",
+            "Model",
+            "GroundTruth",
+            "Prediction",
+            "Agreement",
+            "Confidence",
+            "TrustScore",
+        ]
+    ]
+
+
+# Incorrect Predictions
+
+def incorrect_predictions(
+    self,
+    df,
+):
+    return df[
+        df["Prediction"]
+        !=
+        df["GroundTruth"]
+    ]
+
+
+# Correct Predictions
+
+def correct_predictions(
+    self,
+    df,
+):
+    return df[
+        df["Prediction"]
+        ==
+        df["GroundTruth"]
+    ]
+
+
+# High Confidence Errors
+
+def high_confidence_errors(
+    self,
+    df,
+    threshold=0.90,
+):
+    return df[
+        (
+            df["Prediction"]
+            !=
+            df["GroundTruth"]
+        )
+        &
+        (
+            df["Confidence"]
+            >= threshold
+        )
+    ]
+
+
+# Low Trust Correct Predictions
+
+def low_trust_correct(
+    self,
+    df,
+    threshold=0.50,
+):
+    return df[
+        (
+            df["Prediction"]
+            ==
+            df["GroundTruth"]
+        )
+        &
+        (
+            df["TrustScore"]
+            < threshold
+        )
+    ]
+
+
+# Agreement Summary
+
+def agreement_summary(
+    self,
+    df,
+):
+    correct = (
+        df["Prediction"]
+        ==
+        df["GroundTruth"]
+    ).sum()
+    incorrect = len(df) - correct
+    return {
+        "Correct":
+            int(correct),
+        "Incorrect":
+            int(incorrect),
+        "Accuracy":
+            round(
+                correct /
+                len(df),
+                4,
+            ),
+    }
+
+
+# Trust vs Agreement
+
+def trust_accuracy_summary(
+    self,
+    df,
+):
+    data = self.add_agreement_column(df)
+    return (
+        data
+        .groupby("Agreement")
+        [
+            [
+                "TrustScore",
+                "Confidence",
+            ]
+        ]
+        .mean()
+        .round(3)
+    )
+
+
+# Prediction Distribution
+
+def prediction_distribution(
+    self,
+    df,
+):
+    return (
+        df
+        .groupby(
+            "Prediction"
+        )
+        .size()
+        .reset_index(
+            name="Count"
+        )
+    )
+
+
+# Ground Truth Distribution
+
+def groundtruth_distribution(
+    self,
+    df,
+):
+    return (
+        df
+        .groupby(
+            "GroundTruth"
+        )
+        .size()
+        .reset_index(
+            name="Count"
+        )
+    )
+
+
+# Model Summary
+
+def model_summary(
+    self,
+    df,
+):
+    result = (
+        df
+        .groupby("Model")
+        .agg(
+            Predictions=("Prediction", "count"),
+            AvgConfidence=("Confidence", "mean"),
+            AvgTrust=("TrustScore", "mean"),
+        )
+        .round(3)
+    )
+    return result.reset_index()
+
+
+# Ticker Summary
+
+def ticker_summary(
+    self,
+    df,
+):
+    result = (
+        df
+        .groupby("Ticker")
+        .agg(
+            Predictions=("Prediction", "count"),
+            AvgConfidence=("Confidence", "mean"),
+            AvgTrust=("TrustScore", "mean"),
+        )
+        .round(3)
+    )
+    return result.reset_index()
+
+
+# Show Comparison Table
+
+def show_comparison(
+    self,
+    df,
+):
+    st.subheader("Ground Truth vs Model Prediction")
+    st.dataframe(
+        self.comparison_table(df),
+        use_container_width=True,
+    )
+
+
+# Show Confusion Matrix
+
+def show_confusion_matrix(
+    self,
+    df,
+):
+    st.subheader("Confusion Matrix")
+    st.dataframe(
+        self.confusion_matrix(df),
+        use_container_width=True,
+    )
+
+# Show Errors
+
+def show_errors(
+    self,
+    df,
+):
+    st.subheader("Prediction Errors")
+    st.dataframe(
+        self.incorrect_predictions(df),
+        use_container_width=True,
+    )
+
+
+# Model Leaderboard
+
+def model_leaderboard(self, df):
+    data = self.add_agreement_column(df)
+    leaderboard = (
+        data
+        .groupby("Model")
+        .agg(
+            Accuracy=("Agreement",
+                      lambda x: (x == "Correct").mean()),
+            Trust=("TrustScore", "mean"),
+            Confidence=("Confidence", "mean"),
+            Trades=("Prediction", "count"),
+        )
+        .round(4)
+    )
+
+    leaderboard["Score"] = (
+        0.50 * leaderboard["Accuracy"]
+        + 0.30 * leaderboard["Trust"]
+        + 0.20 * leaderboard["Confidence"]
+    )
+    leaderboard = (
+        leaderboard
+        .sort_values(
+            "Score",
+            ascending=False,
+        )
+        .reset_index()
+    )
+    leaderboard.insert(
+        0,
+        "Rank",
+        np.arange(
+            1,
+            len(leaderboard) + 1,
+        ),
+    )
+    return leaderboard
+
+
+# Asset Leaderboard
+
+def asset_leaderboard(self, df):
+    data = self.add_agreement_column(df)
+    leaderboard = (
+        data
+        .groupby("Ticker")
+        .agg(
+            Accuracy=("Agreement",
+                      lambda x: (x == "Correct").mean()),
+            Trust=("TrustScore", "mean"),
+            Confidence=("Confidence", "mean"),
+            Predictions=("Prediction", "count"),
+        )
+        .round(4)
+        .sort_values(
+            "Accuracy",
+            ascending=False,
+        )
+    )
+    return leaderboard.reset_index()
+
+
+# Trade Audit Table
+
+def trade_audit_table(self, df):
+    audit = df.copy()
+    audit["Correct"] = (
+        audit["Prediction"]
+        ==
+        audit["GroundTruth"]
+    )
+    audit["Error"] = (
+        audit["Prediction"]
+        !=
+        audit["GroundTruth"]
+    )
+    audit["RiskFlag"] = np.where(
+        (
+            audit["Confidence"] > 0.90
+        )
+        &
+        (
+            audit["Error"]
+        ),
+        "HIGH",
+        "NORMAL",
+    )
+    return audit
+
+
+# GT Scorecard
+
+def gt_scorecard(self, df):
+    accuracy = self.prediction_accuracy(df)
+    trust = df["TrustScore"].mean()
+    confidence = df["Confidence"].mean()
+    hallucination = (
+        df["Prediction"]
+        !=
+        df["GroundTruth"]
+    ).mean()
+    return {
+        "Accuracy":
+            round(accuracy, 4),
+        "Trust":
+            round(trust, 4),
+        "Confidence":
+            round(confidence, 4),
+        "Hallucination Rate":
+            round(hallucination, 4),
+    }
+
+
+# Model Ranking
+
+def rank_models(self, df):
+    board = self.model_leaderboard(df)
+    return board.sort_values(
+        "Score",
+        ascending=False,
+    )
+
+# Trust Ranking
+
+def trust_ranking(self, df):
+    return (
+        df
+        .groupby("Model")["TrustScore"]
+        .mean()
+        .sort_values(
+            ascending=False,
+        )
+        .reset_index()
+    )
+
+
+# Confidence Ranking
+
+def confidence_ranking(self, df):
+    return (
+        df
+        .groupby("Model")["Confidence"]
+        .mean()
+        .sort_values(
+            ascending=False,
+        )
+        .reset_index()
+    )
+
+
+# Hallucination Ranking
+
+def hallucination_ranking(self, df):
+    data = self.add_agreement_column(df)
+    ranking = (
+        data
+        .groupby("Model")["Agreement"]
+        .apply(
+            lambda x:
+            (x == "Incorrect").mean()
+        )
+        .reset_index()
+    )
+    ranking.columns = [
+        "Model",
+        "HallucinationRate",
+    ]
+    return ranking.sort_values(
+        "HallucinationRate"
+    )
+
+# Calibration Ranking
+
+def calibration_ranking(self, df):
+    ranking = (
+        df
+        .groupby("Model")
+        .apply(
+            lambda x:
+            np.mean(
+                np.abs(
+                    x["Confidence"]
+                    -
+                    x["TrustScore"]
+                )
+            )
+        )
+        .reset_index()
+    )
+    ranking.columns = [
+        "Model",
+        "CalibrationError",
+    ]
+    return ranking.sort_values(
+        "CalibrationError"
+    )
+
+# Overall Audit Report
+
+def audit_report(self, df):
+    return {
+        "Scorecard":
+            self.gt_scorecard(df),
+        "Leaderboard":
+            self.model_leaderboard(df),
+        "Assets":
+            self.asset_leaderboard(df),
+        "Hallucination":
+            self.hallucination_ranking(df),
+        "Calibration":
+            self.calibration_ranking(df),
+    }
+
+# Executive Summary
+
+def executive_summary(self, df):
+    score = self.gt_scorecard(df)
+    return pd.DataFrame(
+        {
+            "Metric": [
+                "Accuracy",
+                "Trust",
+                "Confidence",
+                "Hallucination",
+            ],
+            "Value": [
+                score["Accuracy"],
+                score["Trust"],
+                score["Confidence"],
+                score["Hallucination Rate"],
+            ],
+        }
+    )
+
+# Export Report
+
+def export_audit_report(
+    self,
+    df,
+    filename="audit_report.csv",
+):
+    report = self.executive_summary(df)
+    st.download_button(
+        "Download Audit Report",
+        report.to_csv(index=False),
+        filename,
+        mime="text/csv",
+    )
+
+# Show Leaderboard
+
+def show_leaderboard(self, df):
+    st.subheader("Model Leaderboard")
+    st.dataframe(
+        self.model_leaderboard(df),
+        use_container_width=True,
+    )
+
+# Show Asset Leaderboard
+
+def show_assets(self, df):
+    st.subheader("Asset Leaderboard")
+    st.dataframe(
+        self.asset_leaderboard(df),
+        use_container_width=True,
+    )
+
+# Show Executive Summary
+
+def show_summary_report(self, df):
+    st.subheader("Executive Summary")
+    st.dataframe(
+        self.executive_summary(df),
+        use_container_width=True,
+    )
+
+# Full Audit Dashboard
+
+def render_audit_dashboard(self, df):
+    self.show_summary(df)
+    st.divider()
+    self.show_leaderboard(df)
+    st.divider()
+    self.show_assets(df)
+    st.divider()
+    self.show_summary_report(df)
+    st.divider()
+    self.export_audit_report(df)
+
