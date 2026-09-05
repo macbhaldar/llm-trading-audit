@@ -1170,3 +1170,210 @@ def drift_score(
         "DriftScore",
         ascending=False,
     )
+
+
+# Stable Models
+
+def stable_models(
+    self,
+    df,
+):
+    drift = self.drift_score(df)
+    return drift.sort_values(
+        "DriftScore",
+        ascending=True,
+    )
+
+
+# Trust Change
+
+def trust_change(
+    self,
+    df,
+):
+    monthly = self.monthly_summary(df)
+    monthly["TrustChange"] = (
+        monthly["Trust"]
+        .diff()
+    )
+    return monthly
+
+
+# Accuracy Change
+
+def accuracy_change(
+    self,
+    df,
+):
+    monthly = self.monthly_summary(df)
+    monthly["AccuracyChange"] = (
+        monthly["Accuracy"]
+        .diff()
+    )
+    return monthly
+
+
+# Risk Flags
+
+def temporal_risk_flags(
+    self,
+    df,
+):
+    monthly = self.monthly_summary(df)
+    monthly["Risk"] = np.where(
+        (
+            monthly["Trust"] < 0.60
+        )
+        |
+        (
+            monthly["Accuracy"] < 0.55
+        ),
+        "HIGH",
+        "NORMAL",
+    )
+    return monthly
+
+
+# Audit Timeline
+
+def audit_timeline(
+    self,
+    df,
+):
+    daily = self.daily_summary(df)
+    return daily[
+        [
+            "Date",
+            "Accuracy",
+            "Trust",
+            "Confidence",
+            "Trades",
+        ]
+    ]
+
+
+# Time Window Comparison
+
+def compare_periods(
+    self,
+    df,
+    start1,
+    end1,
+    start2,
+    end2,
+):
+    p1 = df[
+        (
+            df["Date"] >= start1
+        )
+        &
+        (
+            df["Date"] <= end1
+        )
+    ]
+    p2 = df[
+        (
+            df["Date"] >= start2
+        )
+        &
+        (
+            df["Date"] <= end2
+        )
+    ]
+    return {
+        "Period1":
+            self.gt_scorecard(p1),
+        "Period2":
+            self.gt_scorecard(p2),
+    }
+
+
+# Trust Trend by Model
+
+def trust_trend_by_model(
+    self,
+    df,
+):
+    data = df.copy()
+    data["Date"] = pd.to_datetime(
+        data["Date"]
+    )
+    data["Month"] = (
+        data["Date"]
+        .dt.to_period("M")
+        .astype(str)
+    )
+    return (
+        data
+        .groupby(
+            [
+                "Month",
+                "Model",
+            ]
+        )
+        ["TrustScore"]
+        .mean()
+        .reset_index()
+    )
+
+
+# Prediction Flow Table
+
+def prediction_flow(
+    self,
+    df,
+):
+    """
+    Creates a flow table betweenGround Truth -> Prediction.
+    """
+    flow = (
+        df
+        .groupby(
+            [
+                "GroundTruth",
+                "Prediction",
+            ]
+        )
+        .size()
+        .reset_index(name="Count")
+        .sort_values(
+            "Count",
+            ascending=False,
+        )
+    )
+    return flow
+
+
+# Model Prediction Counts
+
+def model_prediction_counts(
+    self,
+    df,
+):
+    counts = (
+        df
+        .groupby(
+            [
+                "Model",
+                "Prediction",
+            ]
+        )
+        .size()
+        .reset_index(name="Count")
+    )
+    return counts
+
+
+# Ground Truth Counts
+
+def groundtruth_counts(
+    self,
+    df,
+):
+    counts = (
+        df
+        .groupby("GroundTruth")
+        .size()
+        .reset_index(name="Count")
+    )
+    return counts
