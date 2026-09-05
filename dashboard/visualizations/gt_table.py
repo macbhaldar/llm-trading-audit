@@ -963,3 +963,210 @@ def render_audit_dashboard(self, df):
     st.divider()
     self.export_audit_report(df)
 
+
+# Rolling Trust Score
+
+def rolling_trust(
+    self,
+    df,
+    window=30,
+):
+    data = df.copy()
+    data = data.sort_values("Date")
+    data["RollingTrust"] = (
+        data["TrustScore"]
+        .rolling(window)
+        .mean()
+    )
+    return data
+
+
+# Rolling Accuracy
+
+def rolling_accuracy(
+    self,
+    df,
+    window=30,
+):
+    data = self.add_agreement_column(df)
+    data["Correct"] = (
+        data["Agreement"]
+        ==
+        "Correct"
+    ).astype(int)
+    data = data.sort_values("Date")
+    data["RollingAccuracy"] = (
+        data["Correct"]
+        .rolling(window)
+        .mean()
+    )
+    return data
+
+
+# Daily Audit Summary
+
+def daily_summary(
+    self,
+    df,
+):
+    data = self.add_agreement_column(df)
+    summary = (
+        data
+        .groupby("Date")
+        .agg(
+            Accuracy=(
+                "Agreement",
+                lambda x:
+                (x == "Correct").mean(),
+            ),
+            Trust=(
+                "TrustScore",
+                "mean",
+            ),
+            Confidence=(
+                "Confidence",
+                "mean",
+            ),
+            Trades=(
+                "Prediction",
+                "count",
+            ),
+        )
+        .round(4)
+    )
+    return summary.reset_index()
+
+
+# Monthly Audit Summary
+
+def monthly_summary(
+    self,
+    df,
+):
+    data = df.copy()
+    data["Date"] = pd.to_datetime(
+        data["Date"]
+    )
+    data["Month"] = (
+        data["Date"]
+        .dt.to_period("M")
+        .astype(str)
+    )
+    data = self.add_agreement_column(data)
+    summary = (
+        data
+        .groupby("Month")
+        .agg(
+            Accuracy=(
+                "Agreement",
+                lambda x:
+                (x == "Correct").mean(),
+            ),
+            Trust=(
+                "TrustScore",
+                "mean",
+            ),
+            Confidence=(
+                "Confidence",
+                "mean",
+            ),
+            Trades=(
+                "Prediction",
+                "count",
+            ),
+        )
+        .round(4)
+    )
+    return summary.reset_index()
+
+
+# Trust Heatmap
+
+def trust_heatmap(
+    self,
+    df,
+):
+    table = pd.pivot_table(
+        df,
+        index="Model",
+        columns="Ticker",
+        values="TrustScore",
+        aggfunc=np.mean,
+    )
+    return table.round(3)
+
+# Accuracy Heatmap
+
+def accuracy_heatmap(
+    self,
+    df,
+):
+    data = self.add_agreement_column(df)
+    data["Correct"] = (
+        data["Agreement"]
+        ==
+        "Correct"
+    ).astype(int)
+
+    table = pd.pivot_table(
+        data,
+        index="Model",
+        columns="Ticker",
+        values="Correct",
+        aggfunc=np.mean,
+    )
+    return table.round(3)
+
+
+# Model Drift
+
+def model_drift(
+    self,
+    df,
+):
+    data = df.copy()
+    data["Date"] = pd.to_datetime(
+        data["Date"]
+    )
+    data["Month"] = (
+        data["Date"]
+        .dt.to_period("M")
+        .astype(str)
+    )
+    drift = (
+        data
+        .groupby(
+            [
+                "Month",
+                "Model",
+            ]
+        )
+        ["TrustScore"]
+        .mean()
+        .reset_index()
+    )
+    return drift
+
+
+# Drift Score
+
+def drift_score(
+    self,
+    df,
+):
+    drift = self.model_drift(df)
+    result = (
+        drift
+        .groupby("Model")
+        ["TrustScore"]
+        .std()
+        .reset_index()
+    )
+    result.columns = [
+        "Model",
+        "DriftScore",
+    ]
+    return result.sort_values(
+        "DriftScore",
+        ascending=False,
+    )
