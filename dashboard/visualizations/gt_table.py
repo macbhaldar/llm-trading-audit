@@ -1377,3 +1377,389 @@ def groundtruth_counts(
         .reset_index(name="Count")
     )
     return counts
+
+
+
+# Prediction Transition Matrix
+
+def prediction_transition_matrix(
+    self,
+    df,
+):
+    matrix = pd.crosstab(
+        df["GroundTruth"],
+        df["Prediction"],
+    )
+    return matrix
+
+
+# Model Transition Matrix
+
+def model_transition_matrix(
+    self,
+    df,
+):
+    table = pd.pivot_table(
+        df,
+        index="Model",
+        columns="Prediction",
+        values="Confidence",
+        aggfunc="count",
+        fill_value=0,
+    )
+    return table
+
+
+# Majority Vote
+
+def majority_vote(
+    self,
+    df,
+):
+    vote = (
+        df
+        .groupby(
+            [
+                "Date",
+                "Ticker",
+            ]
+        )
+        ["Prediction"]
+        .agg(
+            lambda x:
+            x.mode().iloc[0]
+            if len(x.mode()) > 0
+            else np.nan
+        )
+        .reset_index()
+    )
+    vote.columns = [
+        "Date",
+        "Ticker",
+        "MajorityPrediction",
+    ]
+    return vote
+
+
+# Consensus Score
+
+def consensus_score(
+    self,
+    df,
+):
+    def score(group):
+        freq = (
+            group["Prediction"]
+            .value_counts(normalize=True)
+            .max()
+        )
+        return freq
+    result = (
+        df
+        .groupby(
+            [
+                "Date",
+                "Ticker",
+            ]
+        )
+        .apply(score)
+        .reset_index(name="Consensus")
+    )
+    return result
+
+
+# Consensus with GT
+
+def consensus_vs_groundtruth(
+    self,
+    df,
+):
+    consensus = self.majority_vote(df)
+    gt = (
+        df
+        [
+            [
+                "Date",
+                "Ticker",
+                "GroundTruth",
+            ]
+        ]
+        .drop_duplicates()
+    )
+    merged = (
+        consensus
+        .merge(
+            gt,
+            on=[
+                "Date",
+                "Ticker",
+            ],
+            how="left",
+        )
+    )
+    merged["Correct"] = (
+        merged["MajorityPrediction"]
+        ==
+        merged["GroundTruth"]
+    )
+    return merged
+
+
+# Consensus Accuracy
+
+def consensus_accuracy(
+    self,
+    df,
+):
+    result = self.consensus_vs_groundtruth(df)
+    return round(
+        result["Correct"].mean(),
+        4,
+    )
+
+# Consensus by Model Count
+
+def consensus_distribution(
+    self,
+    df,
+):
+    score = self.consensus_score(df)
+    score["Level"] = pd.cut(
+        score["Consensus"],
+        bins=[
+            0,
+            0.50,
+            0.75,
+            0.90,
+            1.00,
+        ],
+        labels=[
+            "Low",
+            "Medium",
+            "High",
+            "Perfect",
+        ],
+        include_lowest=True,
+    )
+    return (
+        score
+        .groupby("Level")
+        .size()
+        .reset_index(name="Cases")
+    )
+
+
+# Asset Prediction Flow
+
+def asset_prediction_flow(
+    self,
+    df,
+):
+    return (
+        df
+        .groupby(
+            [
+                "Ticker",
+                "Prediction",
+            ]
+        )
+        .size()
+        .reset_index(name="Count")
+    )
+
+
+# Model Prediction Flow
+
+def model_prediction_flow(
+    self,
+    df,
+):
+    return (
+        df
+        .groupby(
+            [
+                "Model",
+                "Prediction",
+            ]
+        )
+        .size()
+        .reset_index(name="Count")
+    )
+
+
+# Model Agreement Matrix
+
+def model_agreement_matrix(
+    self,
+    df,
+):
+    models = sorted(df["Model"].unique())
+
+    matrix = pd.DataFrame(
+        index=models,
+        columns=models,
+        dtype=float,
+    )
+    for m1 in models:
+        d1 = (
+            df[df["Model"] == m1]
+            [["Date", "Ticker", "Prediction"]]
+            .rename(
+                columns={
+                    "Prediction": m1
+                }
+            )
+        )
+        for m2 in models:
+            d2 = (
+                df[df["Model"] == m2]
+                [["Date", "Ticker", "Prediction"]]
+                .rename(
+                    columns={
+                        "Prediction": m2
+                    }
+                )
+            )
+            merged = d1.merge(
+                d2,
+                on=[
+                    "Date",
+                    "Ticker",
+                ],
+               how="inner",
+            )
+            if len(merged) == 0:
+                matrix.loc[m1, m2] = np.nan
+            else:
+                matrix.loc[m1, m2] = (
+                    merged[m1] == merged[m2]
+                ).mean()
+    return matrix.round(3)
+
+
+# Model Disagreement Matrix
+
+def model_disagreement_matrix(
+    self,
+    df,
+):
+    agreement = self.model_agreement_matrix(df)
+    return (1 - agreement).round(3)
+
+
+# Agreement Graph Edge List
+
+def agreement_edges(
+    self,
+    df,
+    threshold=0.70,
+):
+    agreement = self.model_agreement_matrix(df)
+    edges = []
+    models = agreement.index.tolist()
+    for i in range(len(models)):
+        for j in range(i + 1, len(models)):
+            value = agreement.iloc[i, j]
+            if pd.notna(value) and value >= threshold:
+                edges.append(
+                    {
+                        "Source": models[i],
+                        "Target": models[j],
+                        "Weight": value,
+                    }
+                )
+    return pd.DataFrame(edges)
+
+
+# Agreement Degree
+
+def agreement_degree(
+    self,
+    df,
+    threshold=0.70,
+):
+    edges = self.agreement_edges(
+        df,
+        threshold,
+    )
+    models = sorted(df["Model"].unique())
+    degree = []
+    for model in models:
+        value = (
+            (edges["Source"] == model).sum()
+            +
+            (edges["Target"] == model).sum()
+        )
+        degree.append(value)
+    return pd.DataFrame(
+        {
+            "Model": models,
+            "Degree": degree,
+        }
+    )
+
+
+# Consensus Network
+
+def consensus_network(
+    self,
+    df,
+):
+    edges = self.agreement_edges(df)
+    degree = self.agreement_degree(df)
+    return {
+        "edges": edges,
+        "nodes": degree,
+    }
+
+
+# Most Agreeing Models
+
+def most_agreeing_models(
+    self,
+    df,
+):
+    degree = self.agreement_degree(df)
+    return degree.sort_values(
+        "Degree",
+        ascending=False,
+    )
+
+
+# Most Disagreeing Models
+
+def most_disagreeing_models(
+    self,
+    df,
+):
+    degree = self.agreement_degree(df)
+    return degree.sort_values(
+        "Degree",
+        ascending=True,
+    )
+
+
+# Model Consensus Score
+
+def model_consensus_score(
+    self,
+    df,
+):
+    matrix = self.model_agreement_matrix(df)
+    scores = []
+    for model in matrix.index:
+        value = (
+            matrix.loc[model]
+            .drop(model)
+            .mean()
+        )
+        scores.append(value)
+    return pd.DataFrame(
+        {
+            "Model": matrix.index,
+            "ConsensusScore": np.round(scores, 3),
+        }
+    ).sort_values(
+        "ConsensusScore",
+        ascending=False,
+    )
