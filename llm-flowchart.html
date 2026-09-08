@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LLM Trading Dataset Auditing — Architecture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+        
+         :root {
+            --ink: #22384f;
+            --muted: #6a7686;
+            --arr: #3f83d6;
+            --o: #ef913b;
+            --g: #3f9e5a;
+            --b: #3d7ec2;
+            --p: #a24fc8;
+        }
+        
+        html,
+        body {
+            height: 100%
+        }
+        
+        body {
+            background: linear-gradient(180deg, #e9eef4, #dce3ec);
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: var(--ink)
+        }
+        /* ---------- toolbar ---------- */
+        
+        #bar {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 18px;
+            background: #fff;
+            border-bottom: 1px solid #dfe5ec;
+            flex-wrap: wrap
+        }
+        
+        .kick {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: .2em;
+            color: var(--b)
+        }
+        
+        .pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: .12em;
+            color: var(--muted);
+            border: 1px solid #d9e0e9;
+            border-radius: 999px;
+            padding: 8px 14px
+        }
+        
+        .pill i {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #b8c2ce;
+            transition: .3s
+        }
+        
+        .pill.run i {
+            background: var(--o);
+            animation: blink 1s steps(2) infinite
+        }
+        
+        .pill.done i {
+            background: #2fa866
+        }
+        
+        @keyframes blink {
+            50% {
+                opacity: .15
+            }
+        }
+        
+        .hintbar {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: #8b97a6
+        }
+        
+        .spacer {
+            flex: 1
+        }
+        
+        .seg {
+            display: flex;
+            border: 1px solid #d9e0e9;
+            border-radius: 8px;
+            overflow: hidden
+        }
+        
+        .seg button {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            padding: 8px 11px;
+            background: none;
+            border: 0;
+            color: var(--muted);
+            cursor: pointer
+        }
+        
+        .seg button.on {
+            background: #eaf2fb;
+            color: var(--b)
+        }
+        
+        .btn {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: .14em;
+            padding: 9px 16px;
+            border-radius: 8px;
+            border: 1px solid #c9d4e0;
+            background: #fff;
+            color: var(--ink);
+            cursor: pointer;
+            transition: .15s
+        }
+        
+        .btn:hover {
+            border-color: var(--b);
+            color: var(--b)
+        }
+        
+        .btn.primary {
+            background: var(--b);
+            border-color: var(--b);
+            color: #fff
+        }
+        
+        .btn.primary:hover:not(:disabled) {
+            background: #2f6fc2
+        }
+        
+        .btn:disabled {
+            opacity: .5;
+            cursor: default
+        }
+        /* ---------- stage ---------- */
+        
+        #stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 16px;
+            overflow: auto;
+            position: relative;
+            min-height: 0
+        }
+        
+        svg#cv {
+            width: min(1410px, 100%);
+            height: auto;
+            min-width: 1080px;
+            filter: drop-shadow(0 10px 28px rgba(40, 60, 90, .14))
+        }
+        
+        #cv text {
+            font-family: 'Poppins', sans-serif;
+            user-select: none
+        }
+        
+        #cv .mono {
+            font-family: 'IBM Plex Mono', monospace
+        }
+        
+        .ic {
+            stroke-width: 1.9;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round
+        }
+        
+        .ic path,
+        .ic circle,
+        .ic rect,
+        .ic ellipse {
+            stroke: currentColor
+        }
+        
+        .ic .f {
+            fill: currentColor;
+            stroke: none
+        }
+        /* intro pops */
+        
+        .in {
+            animation: popin .55s cubic-bezier(.2, .7, .25, 1) both
+        }
+        
+        @keyframes popin {
+            from {
+                opacity: 0;
+                transform: translateY(12px)
+            }
+        }
+        
+        .node .in {
+            transition: transform .22s
+        }
+        
+        .node:hover .in {
+            transform: translateY(-3px)
+        }
+        
+        .node {
+            cursor: pointer
+        }
+        
+        .node:hover .cbox {
+            stroke-width: 2.1
+        }
+        
+        .node.act .cbox {
+            stroke: var(--arr)!important;
+            stroke-width: 2.2;
+            filter: drop-shadow(0 0 5px rgba(63, 131, 214, .55))
+        }
+        
+        .cbox {
+            transition: stroke .2s, stroke-width .2s
+        }
+        /* status dots */
+        
+        .pdot {
+            animation: dpulse 2.4s ease-in-out infinite;
+            transform-box: fill-box;
+            transform-origin: center
+        }
+        
+        @keyframes dpulse {
+            0%,
+            100% {
+                opacity: 1
+            }
+            50% {
+                opacity: .4
+            }
+        }
+        
+        .pdot.blink {
+            animation: dblink .45s steps(2) infinite
+        }
+        
+        @keyframes dblink {
+            50% {
+                opacity: .1
+            }
+        }
+        /* edges */
+        
+        .edge {
+            pointer-events: none;
+            transition: opacity .25s
+        }
+        
+        .edge .base {
+            fill: none;
+            transition: stroke .2s
+        }
+        
+        .edge.wire .base {
+            stroke-dasharray: 5 6
+        }
+        
+        #cv.focusing .edge:not(.hot) {
+            opacity: .16
+        }
+        
+        .comet {
+            fill: none;
+            stroke-linecap: round
+        }
+        
+        .hd {
+            transition: opacity .2s
+        }
+        /* floats */
+        
+        .float {
+            filter: drop-shadow(0 3px 7px rgba(30, 50, 80, .16))
+        }
+        
+        .fl {
+            animation: fbob var(--d, 5s) ease-in-out infinite
+        }
+        
+        @keyframes fbob {
+            0%,
+            100% {
+                transform: translateY(0)
+            }
+            50% {
+                transform: translateY(-4px)
+            }
+        }
+        
+        .flash {
+            filter: drop-shadow(0 0 8px rgba(63, 131, 214, .9)) drop-shadow(0 3px 7px rgba(30, 50, 80, .16))
+        }
+        /* hands */
+        
+        .hand .an {
+            animation: hbob var(--d, 3s) ease-in-out infinite
+        }
+        
+        @keyframes hbob {
+            0%,
+            100% {
+                transform: translateY(0)
+            }
+            50% {
+                transform: translateY(-4px)
+            }
+        }
+        
+        .hand.tap .an {
+            animation: htap .55s ease
+        }
+        
+        @keyframes htap {
+            35% {
+                transform: translateY(4px) scale(.88)
+            }
+        }
+        /* reveal groups */
+        
+        .deckb {
+            opacity: 0;
+            transform: translateY(-9px) scale(.92);
+            transition: .5s cubic-bezier(.34, 1.5, .5, 1);
+            transform-box: fill-box;
+            transform-origin: center
+        }
+        
+        .deckb.show {
+            opacity: 1;
+            transform: none
+        }
+        
+        .popel {
+            opacity: 0;
+            transform: scale(.55);
+            transition: .4s cubic-bezier(.34, 1.6, .5, 1);
+            transform-box: fill-box;
+            transform-origin: center
+        }
+        
+        .popel.show {
+            opacity: 1;
+            transform: none
+        }
+        
+        .popel.gone {
+            opacity: 0;
+            transform: scale(.9)
+        }
+        
+        .val {
+            opacity: 0;
+            transition: opacity .45s
+        }
+        
+        .val.show {
+            opacity: 1
+        }
+        
+        .popin {
+            animation: ppin .55s cubic-bezier(.34, 1.8, .5, 1) both;
+            transform-box: fill-box;
+            transform-origin: center
+        }
+        
+        @keyframes ppin {
+            from {
+                opacity: 0;
+                transform: scale(.3)
+            }
+        }
+        
+        .gton {
+            transition: fill .3s
+        }
+        /* tooltip */
+        
+        #tip {
+            position: absolute;
+            z-index: 9;
+            pointer-events: none;
+            background: #16283e;
+            color: #fff;
+            padding: 9px 12px;
+            border-radius: 9px;
+            max-width: 230px;
+            box-shadow: 0 8px 22px rgba(10, 25, 45, .35);
+            opacity: 0;
+            transition: opacity .12s
+        }
+        
+        #tip b {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 2px
+        }
+        
+        #tip span {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            line-height: 1.5;
+            color: #b9c8dc
+        }
+        
+        @media (prefers-reduced-motion:reduce) {
+            * {
+                animation: none!important;
+                transition: none!important
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="bar">
+        <span class="kick">LLM-TRADING · DATASET AUDIT</span>
+        <div class="pill" id="pill"><i></i><span id="stTxt">BOOTING…</span></div>
+        <span class="hintbar">hover blocks · click to pulse links</span>
+        <div class="spacer"></div>
+        <div class="seg" id="seg"><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button></div>
+        <button class="btn primary" id="runBtn">RUN AUDIT</button>
+        <button class="btn" id="resetBtn">RESET</button>
+    </div>
+
+    <div id="stage">
+        <svg id="cv" viewBox="0 0 1410 772"></svg>
+        <div id="tip"></div>
+    </div>
+
+    <script>
+        /* ============ helpers ============ */
+        const NS = 'http://www.w3.org/2000/svg',
+            svg = document.getElementById('cv');
+        const el = (t, a = {}, p) => {
+            const n = document.createElementNS(NS, t);
+            for (const k in a) n.setAttribute(k, a[k]);
+            if (p) p.appendChild(n);
+            return n;
+        };
+        const txt = (p, x, y, s, fs, fw, fill, anc = 'middle', ls = 0, cls = '') => {
+            const t = el('text', {
+                x,
+                y,
+                'font-size': fs,
+                'font-weight': fw,
+                fill,
+                'text-anchor': anc,
+                ...(ls ? {
+                    'letter-spacing': ls
+                } : {}),
+                ...(cls ? {
+                    class: cls
+                } : {})
+            }, p);
+            t.textContent = s;
+            return t;
+        };
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const eo = p => 1 - Math.pow(1 - p, 3),
+            eio = p => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+
+        function tween(dur, fn, ease) {
+            return new Promise(res => {
+                const t0 = performance.now();
+                (function st(t) {
+                    const p = Math.min(1, (t - t0) / dur);
+                    fn(ease ? ease(p) : p);
+                    p < 1 ? requestAnimationFrame(st) : res();
+                })(t0);
+            });
+        }
+
+        const C = {
+            o: '#ef913b',
+            oD: '#d97a1f',
+            o1: '#fdeedd',
+            o2: '#f2b880',
+            g: '#3f9e5a',
+            gD: '#358a4e',
+            g1: '#ecf6ee',
+            g2: '#a5d3af',
+            b: '#3d7ec2',
+            bD: '#2f6fc2',
+            b1: '#f2f8fd',
+            b2: '#a9cbe8',
+            p: '#a24fc8',
+            pD: '#963fb8',
+            p1: '#f8eefb',
+            p2: '#d9a8e8',
+            ink: '#22384f',
+            txt: '#3b4757',
+            sub: '#7c8a9c',
+            arr: '#3f83d6',
+            wire: '#b9cfe6'
+        };
+
+        /* ============ icons (24×24) ============ */
+        const ICONS = {
+            prices: '<path d="M6 21v-5M11 21v-8M16 21v-6"/><path d="M4 8l6-5 4 3 6-5"/><path class="f" d="M16 1h4.2v4.2h-1.7V3.9L15 7.4 11 4.4 5.9 8.7 4.7 7.3 11 2l4 3 3.4-2.9h-2.4z"/>',
+            news: '<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M6.5 8.5h6M6.5 12h11M6.5 15.5h11"/><path d="M15.5 8.5h2"/>',
+            robot: '<rect x="6" y="8" width="12" height="10" rx="2.5"/><path d="M12 8V5.4"/><circle class="f" cx="12" cy="4" r="1.4"/><circle class="f" cx="9.5" cy="12.3" r="1.15"/><circle class="f" cx="14.5" cy="12.3" r="1.15"/><path d="M9.5 15.6h5"/><path d="M6 12.5H3.6M20.4 12.5H18"/>',
+            db: '<ellipse cx="12" cy="5.5" rx="7" ry="2.7"/><path d="M5 5.5v12c0 1.5 3.1 2.7 7 2.7s7-1.2 7-2.7v-12"/><path d="M5 11.5c0 1.5 3.1 2.7 7 2.7s7-1.2 7-2.7"/>',
+            sliders: '<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2.1" fill="#fff"/><circle cx="15" cy="12" r="2.1" fill="#fff"/><circle cx="8" cy="17" r="2.1" fill="#fff"/>',
+            gauge: '<path d="M4 16.5a8 8 0 1 1 16 0"/><path d="M12 16.5l4.2-4.6"/><circle class="f" cx="12" cy="16.5" r="1.6"/><path d="M7 20.5h10"/>',
+            layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12.5l9 5 9-5"/><path d="M3 16.5l9 5 9-5"/>',
+            drift: '<circle class="f" cx="5" cy="16" r="1.35"/><circle class="f" cx="9" cy="11.6" r="1.35"/><circle class="f" cx="13" cy="13.4" r="1.35"/><circle class="f" cx="17" cy="8" r="1.35"/><path d="M4 20.5L18.6 6.5"/><path d="M14.4 6H19v4.6"/>',
+            bubble: '<path d="M4 5h16v11h-9.5L7 19.5V16H4z"/><path d="M12 8.2v3.6"/><circle class="f" cx="12" cy="14" r=".95"/>',
+            headcheck: '<path d="M9.5 20.5v-3c-2.5-.8-4-3-4-5.7C5.5 8 8.4 5.5 12 5.5s6.5 2.6 6.5 6.3c0 2.7-1.5 4.9-4 5.7v3"/><path d="M9.8 12l1.7 1.7 3-3.4"/>',
+            tri: '<path d="M12 3.5L21.5 20h-19z"/><path d="M12 9.5v4.6"/><circle class="f" cx="12" cy="16.8" r=".95"/>',
+            backtest: '<path d="M4 4v16h16"/><path d="M7 15l3.5-4 3 2.5L18 8.5"/><path d="M14.6 8.5H18V12"/>',
+            pie: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14.5 2.8A9 9 0 0 1 21.2 9.5H14.5z"/>',
+            bars: '<path d="M4 20h16"/><path d="M7 20v-6M12 20v-10M17 20v-14"/>',
+        };
+
+        /* ============ canvas + defs ============ */
+        const defs = el('defs', {}, svg);
+        const mkArr = (id, c) => {
+            const m = el('marker', {
+                id,
+                viewBox: '0 0 10 10',
+                refX: 8,
+                refY: 5,
+                markerWidth: 11,
+                markerHeight: 11,
+                orient: 'auto-start-reverse',
+                markerUnits: 'userSpaceOnUse'
+            }, defs);
+            el('path', {
+                d: 'M0 0L10 5L0 10Z',
+                fill: c
+            }, m);
+        };
+        mkArr('arr', C.arr);
+        mkArr('arrH', '#5ea0e0');
+        const gb = el('linearGradient', {
+            id: 'gb',
+            x1: 0,
+            y1: 0,
+            x2: 1,
+            y2: 0
+        }, defs);
+        el('stop', {
+            offset: '0',
+            'stop-color': '#6fb0ea'
+        }, gb);
+        el('stop', {
+            offset: '1',
+            'stop-color': '#2f6fc2'
+        }, gb);
+
+        el('rect', {
+            x: 8,
+            y: 6,
+            width: 1394,
+            height: 758,
+            rx: 18,
+            fill: '#f3f6fa',
+            stroke: '#dce3eb',
+            'stroke-width': 1.5
+        }, svg);
+        txt(svg, 705, 54, 'LLM Trading Dataset Auditing', 30, 800, '#14304a');
+
+        /* ============ stage panels ============ */
+        const PANELS = [{
+            x: 55,
+            y: 125,
+            w: 222,
+            h: 460,
+            c: C.o,
+            st: 'Stage 1',
+            t: 'INPUTS'
+        }, {
+            x: 315,
+            y: 125,
+            w: 260,
+            h: 460,
+            c: C.g,
+            st: 'Stage 2',
+            t: 'DATA & FEATURE PIPELINE'
+        }, {
+            x: 635,
+            y: 125,
+            w: 425,
+            h: 460,
+            c: C.b,
+            st: 'Stage 3',
+            t: 'AUDITING ENGINE & AUDIT MODULES'
+        }, {
+            x: 1125,
+            y: 125,
+            w: 235,
+            h: 460,
+            c: C.p,
+            st: 'Stage 4',
+            t: 'EVALUATION & REPORTS'
+        }];
+        PANELS.forEach((P, i) => {
+            const g = el('g', {}, svg),
+                inn = el('g', {
+                    class: 'in'
+                }, g);
+            inn.style.animationDelay = (.05 + i * .1) + 's';
+            el('rect', {
+                x: P.x,
+                y: P.y,
+                width: P.w,
+                height: P.h,
+                rx: 12,
+                fill: '#fff',
+                stroke: {
+                    0: C.o2,
+                    1: C.g2,
+                    2: C.b2,
+                    3: C.p2
+                }[i],
+                'stroke-width': 1.5
+            }, inn);
+            el('path', {
+                d: `M ${P.x} ${P.y+36} V ${P.y+12} Q ${P.x} ${P.y} ${P.x+12} ${P.y} H ${P.x+P.w-12} Q ${P.x+P.w} ${P.y} ${P.x+P.w} ${P.y+12} V ${P.y+36} Z`,
+                fill: P.c
+            }, inn);
+            txt(inn, P.x + P.w / 2, P.y - 16, P.st, 15, 700, P.c);
+            txt(inn, P.x + P.w / 2, P.y + 23, P.t, 12.5, 700, '#fff', 'middle', 1.2);
+        });
+
+        /* ============ icon registry ============ */
+        const DRAW = [];
+
+        function mkIcon(name, color, cx, cy, s, parent, ph) {
+            const g = el('g', {
+                class: 'ic',
+                style: `color:${color}`,
+                transform: `translate(${cx-12*s},${cy-12*s}) scale(${s})`
+            }, parent);
+            g.innerHTML = ICONS[name];
+            const shapes = [...g.querySelectorAll('path,circle,rect,ellipse')];
+            const strokes = [],
+                fills = [];
+            shapes.forEach(p => {
+                if (p.classList.contains('f')) {
+                    p.style.opacity = 0;
+                    fills.push(p);
+                    return;
+                }
+                try {
+                    const L = p.getTotalLength();
+                    p.setAttribute('stroke-dasharray', L);
+                    p.setAttribute('stroke-dashoffset', L);
+                    strokes.push({
+                        p,
+                        L
+                    });
+                } catch (e) {}
+            });
+            DRAW.push({
+                strokes,
+                fills,
+                ph
+            });
+            return g;
+        }
+
+        function drawItems(ph, dur = 520, stag = 90) {
+            const items = DRAW.filter(o => o.ph === ph);
+            return items.reduce((pr, it) => pr.then(() => tween(dur, p => it.strokes.forEach(s => s.p.setAttribute('stroke-dashoffset', String(s.L * (1 - p)))))).then(() => {
+                it.fills.forEach(f => f.style.opacity = 1);
+                return sleep(stag / speedMul);
+            }), Promise.resolve());
+        }
+
+        function resetDraw() {
+            DRAW.forEach(it => {
+                it.strokes.forEach(s => s.p.setAttribute('stroke-dashoffset', s.L));
+                it.fills.forEach(f => f.style.opacity = 0);
+            });
+        }
+
+        /* ============ cards ============ */
+        const gE = el('g', {}, svg),
+            gN = el('g', {}, svg),
+            gF = el('g', {}, svg),
+            gTop = el('g', {
+                'pointer-events': 'none'
+            }, svg);
+        const nodeMap = {},
+            NODE_TIP = {};
+        const TIPS = {
+            prices: ['Market Prices & Macro Indicators', 'OHLCV candles plus macro series — rates, FX, commodities.'],
+            news: ['Market News & Textual Data', 'Headlines and text sentiment for watched instruments.'],
+            preds: ['Model Predictions', 'Signals from the LLM agent and baseline models (JSON).'],
+            loader: ['Data Loader & Preprocessing', 'Cleans, aligns and timestamps every raw source.'],
+            feature: ['Feature Engineering', 'Derives technical features: MAs, RSI, MACD, volatility.'],
+            regime: ['Market Regime Detector', 'Classifies regime: trend / range / volatile.'],
+            merged: ['Merged & Processed Dataset', 'Single model-ready dataset with aligned labels.'],
+            drift: ['Drift Detector', 'PSI / KS tests for distribution shift in features.'],
+            hallc: ['Hallucination & Consistency', 'Checks prediction coherence against known facts.'],
+            theory: ['Theory Validator', 'Validates calls against financial-theory priors.'],
+            risk: ['Risk Audit', 'Stress-tests exposure: drawdown, volatility, limits.'],
+            trust: ['Dynamic Trust Score Generator', 'Blends every audit signal into one 0–100 score.'],
+            gt: ['Ground Truth Generator', 'Builds realized outcomes used to score predictions.'],
+            backtest: ['Financial Backtesting', 'Replays history: returns, Sharpe, max drawdown.'],
+            portfolio: ['Portfolio Metrics', 'Allocation quality, diversification, PnL attribution.'],
+            compare: ['Model Comparison', 'LLM vs baselines: LSTM, Transformer, XGBoost.'],
+            summary: ['Summary', 'Final verdict: alerts, overall trust, go / no-go.']
+        };
+
+        function mkCard(d) {
+            const g = el('g', {
+                    class: 'node'
+                }, gN),
+                inn = el('g', {
+                    class: 'in'
+                }, g);
+            inn.style.animationDelay = (d.dl || 0) + 's';
+            el('rect', {
+                class: 'cbox',
+                x: d.x,
+                y: d.y,
+                width: d.w,
+                height: d.h,
+                rx: 11,
+                fill: d.fill,
+                stroke: d.stroke,
+                'stroke-width': 1.4
+            }, inn);
+            const n = {
+                id: d.id,
+                x: d.x,
+                y: d.y,
+                w: d.w,
+                h: d.h,
+                cx: d.x + d.w / 2,
+                cy: d.y + d.h / 2,
+                el: g,
+                in: inn,
+                edges: []
+            };
+            if (d.icon) mkIcon(d.icon, d.ic, n.cx, d.iy, d.is || 1.05, inn, d.ph);
+            (d.lines || []).forEach((L, i) => txt(inn, n.cx, d.ly + i * 16, L[0], L[1] || 12, L[2] || 600, d.tc || C.txt));
+            (d.subs || []).forEach((s, i) => txt(inn, n.cx, d.sy + i * 13, s, 9.5, 500, C.sub));
+            if (d.dot) el('circle', {
+                class: 'pdot',
+                cx: d.x + d.w - 14,
+                cy: d.y + 14,
+                r: 5,
+                fill: d.dot
+            }, inn);
+            if (d.extra) d.extra(inn, n);
+            nodeMap[d.id] = n;
+            wireNode(n);
+            return n;
+        }
+
+        function wireNode(n) {
+            n.el.addEventListener('mouseenter', e => {
+                svg.classList.add('focusing');
+                n.edges.forEach(e2 => hot(e2, true));
+                showTip(TIPS[n.id][0], TIPS[n.id][1], e);
+            });
+            n.el.addEventListener('mousemove', e => moveTip(e));
+            n.el.addEventListener('mouseleave', () => {
+                svg.classList.remove('focusing');
+                allEdges.forEach(e2 => hot(e2, false));
+                hideTip();
+            });
+            n.el.addEventListener('click', () => {
+                n.edges.forEach(e2 => {
+                    e2.rateT = 3;
+                    setTimeout(() => {
+                        if (!e2.hotv) e2.rateT = 1;
+                    }, 1100);
+                });
+            });
+        }
+
+        const stage1 = {
+                fill: C.o1,
+                stroke: C.o2,
+                ic: C.oD,
+                tc: '#4a3a24',
+                ph: 1
+            },
+            stage2 = {
+                fill: C.g1,
+                stroke: C.g2,
+                ic: C.gD,
+                ph: 2
+            },
+            stage3 = {
+                fill: C.b1,
+                stroke: C.b2,
+                ic: C.b,
+                ph: 3
+            },
+            stage4 = {
+                fill: C.p1,
+                stroke: C.p2,
+                ic: C.pD,
+                tc: '#5d3a70',
+                ph: 4
+            };
+
+        mkCard({
+            id: 'prices',
+            x: 75,
+            y: 175,
+            w: 182,
+            h: 105,
+            ...stage1,
+            dl: .1,
+            icon: 'prices',
+            iy: 207,
+            is: 1.15,
+            ly: 250,
+            lines: [
+                ['MARKET PRICES &', 11.5, 700],
+                ['MACRO INDICATORS', 11.5, 700]
+            ]
+        });
+        mkCard({
+            id: 'news',
+            x: 75,
+            y: 310,
+            w: 182,
+            h: 100,
+            ...stage1,
+            dl: .16,
+            icon: 'news',
+            iy: 342,
+            is: 1.15,
+            ly: 385,
+            lines: [
+                ['MARKET NEWS &', 11.5, 700],
+                ['TEXTUAL DATA', 11.5, 700]
+            ]
+        });
+        mkCard({
+            id: 'preds',
+            x: 75,
+            y: 440,
+            w: 182,
+            h: 110,
+            ...stage1,
+            dl: .22,
+            icon: 'robot',
+            iy: 474,
+            is: 1.15,
+            ly: 517,
+            lines: [
+                ['MODEL PREDICTIONS', 11.5, 700],
+                ['(LLM, BASELINE)', 11.5, 700]
+            ]
+        });
+
+        mkCard({
+            id: 'loader',
+            x: 335,
+            y: 185,
+            w: 220,
+            h: 72,
+            ...stage2,
+            dl: .3,
+            icon: 'db',
+            iy: 221,
+            is: 1.05,
+            ly: 0,
+            lines: [],
+            extra: (inn, n) => {
+                txt(inn, n.cx + 14, 215, 'Data Loader &', 12.5, 600, C.txt);
+                txt(inn, n.cx + 14, 232, 'Preprocessing', 12.5, 600, C.txt);
+            }
+        });
+        mkCard({
+            id: 'feature',
+            x: 335,
+            y: 288,
+            w: 220,
+            h: 72,
+            ...stage2,
+            dl: .36,
+            icon: 'sliders',
+            iy: 324,
+            is: 1.05,
+            ly: 0,
+            lines: [],
+            extra: (inn, n) => {
+                txt(inn, n.cx + 14, 318, 'Feature', 12.5, 600, C.txt);
+                txt(inn, n.cx + 14, 335, 'Engineering', 12.5, 600, C.txt);
+            }
+        });
+        mkCard({
+            id: 'regime',
+            x: 335,
+            y: 390,
+            w: 220,
+            h: 72,
+            ...stage2,
+            dl: .42,
+            icon: 'gauge',
+            iy: 426,
+            is: 1.05,
+            ly: 0,
+            lines: [],
+            extra: (inn, n) => {
+                txt(inn, n.cx + 14, 420, 'Market Regime', 12.5, 600, C.txt);
+                txt(inn, n.cx + 14, 437, 'Detector', 12.5, 600, C.txt);
+            }
+        });
+
+        /* merged deck (stacked) */
+        (() => {
+            const g = el('g', {
+                    class: 'node'
+                }, gN),
+                inn = el('g', {
+                    class: 'in'
+                }, g);
+            inn.style.animationDelay = '.48s';
+            const b1 = el('rect', {
+                class: 'deckb',
+                x: 349,
+                y: 511,
+                width: 200,
+                height: 64,
+                rx: 10,
+                fill: '#dcebf8',
+                stroke: C.b2
+            }, inn);
+            const b2 = el('rect', {
+                class: 'deckb',
+                x: 353,
+                y: 517,
+                width: 200,
+                height: 64,
+                rx: 10,
+                fill: '#d0e4f5',
+                stroke: C.b2
+            }, inn);
+            el('rect', {
+                class: 'cbox',
+                x: 345,
+                y: 505,
+                width: 200,
+                height: 64,
+                rx: 10,
+                fill: '#e8f2fb',
+                stroke: C.b2,
+                'stroke-width': 1.4
+            }, inn);
+            mkIcon('layers', C.b, 425, 537, 1, inn, 2);
+            txt(inn, 475, 533, 'Merged & Processed', 12, 600, C.txt);
+            txt(inn, 475, 549, 'Dataset', 12, 600, C.txt);
+            nodeMap.merged = {
+                id: 'merged',
+                x: 345,
+                y: 505,
+                w: 200,
+                h: 64,
+                cx: 445,
+                cy: 537,
+                el: g,
+                in: inn,
+                edges: [],
+                b: [b1, b2]
+            };
+            wireNode(nodeMap.merged);
+            TIPS.merged = TIPS.merged;
+        })();
+
+        mkCard({
+            id: 'drift',
+            x: 655,
+            y: 182,
+            w: 190,
+            h: 105,
+            ...stage3,
+            dl: .56,
+            icon: 'drift',
+            iy: 216,
+            is: 1.1,
+            ly: 259,
+            lines: [
+                ['Drift Detector', 12.5, 600]
+            ],
+            dot: '#35c06b'
+        });
+        mkCard({
+            id: 'hallc',
+            x: 855,
+            y: 182,
+            w: 190,
+            h: 105,
+            ...stage3,
+            dl: .6,
+            icon: 'bubble',
+            iy: 216,
+            is: 1.1,
+            ly: 259,
+            lines: [
+                ['Hallucination &', 12.5, 600],
+                ['Consistency', 12.5, 600]
+            ],
+            dot: '#f0913a'
+        });
+        mkCard({
+            id: 'theory',
+            x: 655,
+            y: 308,
+            w: 190,
+            h: 100,
+            ...stage3,
+            dl: .64,
+            icon: 'headcheck',
+            iy: 340,
+            is: 1.1,
+            ly: 383,
+            lines: [
+                ['Theory Validator', 12.5, 600]
+            ],
+            dot: '#f0913a'
+        });
+        mkCard({
+            id: 'risk',
+            x: 855,
+            y: 308,
+            w: 190,
+            h: 100,
+            ...stage3,
+            dl: .68,
+            icon: 'tri',
+            iy: 340,
+            is: 1.1,
+            ly: 383,
+            lines: [
+                ['Risk Audit', 12.5, 600]
+            ],
+            dot: '#35c06b'
+        });
+
+        /* trust score generator (manual) */
+        (() => {
+            const g = el('g', {
+                    class: 'node'
+                }, gN),
+                inn = el('g', {
+                    class: 'in'
+                }, g);
+            inn.style.animationDelay = '.72s';
+            el('rect', {
+                class: 'cbox',
+                x: 655,
+                y: 428,
+                width: 390,
+                height: 95,
+                rx: 11,
+                fill: C.b1,
+                stroke: C.b2,
+                'stroke-width': 1.4
+            }, inn);
+            txt(inn, 850, 449, 'DYNAMIC TRUST SCORE GENERATOR', 12, 700, '#33455e', 'middle', 1.4);
+            const scoreV = txt(inn, 770, 503, '0.0', 36, 700, '#9aa7b5');
+            txt(inn, 815, 503, '/100', 14, 600, '#90a0b0', 'start');
+            txt(inn, 965, 459, '', 1, 1, '#fff');
+            el('path', {
+                d: 'M 931 494 A 34 34 0 0 1 999 494',
+                fill: 'none',
+                stroke: '#dbe4ee',
+                'stroke-width': 8,
+                'stroke-linecap': 'round'
+            }, inn);
+            const ga = el('path', {
+                d: 'M 931 494 A 34 34 0 0 1 999 494',
+                fill: 'none',
+                stroke: 'url(#gb)',
+                'stroke-width': 8,
+                'stroke-linecap': 'round'
+            }, inn);
+            const gl = ga.getTotalLength();
+            ga.setAttribute('stroke-dasharray', gl);
+            ga.setAttribute('stroke-dashoffset', gl);
+            const nd = el('line', {
+                x1: 965,
+                y1: 494,
+                x2: 965,
+                y2: 470,
+                stroke: C.ink,
+                'stroke-width': 3,
+                'stroke-linecap': 'round'
+            }, inn);
+            el('circle', {
+                cx: 965,
+                cy: 494,
+                r: 4,
+                fill: C.ink
+            }, inn);
+            nodeMap.trust = {
+                id: 'trust',
+                x: 655,
+                y: 428,
+                w: 390,
+                h: 95,
+                cx: 850,
+                cy: 475,
+                el: g,
+                in: inn,
+                edges: [],
+                scoreV,
+                ga,
+                gl,
+                nd
+            };
+            wireNode(nodeMap.trust);
+        })();
+
+        /* ground truth (manual) */
+        (() => {
+            const g = el('g', {
+                    class: 'node'
+                }, gN),
+                inn = el('g', {
+                    class: 'in'
+                }, g);
+            inn.style.animationDelay = '.76s';
+            el('rect', {
+                class: 'cbox',
+                x: 655,
+                y: 540,
+                width: 390,
+                height: 38,
+                rx: 9,
+                fill: '#fff',
+                stroke: C.b2,
+                'stroke-width': 1.4
+            }, inn);
+            const box = el('rect', {
+                x: 673,
+                y: 551,
+                width: 17,
+                height: 17,
+                rx: 4,
+                fill: '#fff',
+                stroke: C.b,
+                'stroke-width': 1.8,
+                class: 'gton'
+            }, inn);
+            const ck = el('path', {
+                d: 'M 677 559.5 l4.2 4.2 l7.4 -8.6',
+                fill: 'none',
+                stroke: '#fff',
+                'stroke-width': 2.6,
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round'
+            }, inn);
+            const cl = ck.getTotalLength();
+            ck.setAttribute('stroke-dasharray', cl);
+            ck.setAttribute('stroke-dashoffset', cl);
+            txt(inn, 702, 564, 'Ground Truth Generator', 12.5, 600, C.txt, 'start');
+            nodeMap.gt = {
+                id: 'gt',
+                x: 655,
+                y: 540,
+                w: 390,
+                h: 38,
+                cx: 850,
+                cy: 559,
+                el: g,
+                in: inn,
+                edges: [],
+                box,
+                ck,
+                cl
+            };
+            wireNode(nodeMap.gt);
+        })();
+
+        mkCard({
+            id: 'backtest',
+            x: 1143,
+            y: 180,
+            w: 199,
+            h: 110,
+            ...stage4,
+            dl: .82,
+            icon: 'backtest',
+            iy: 216,
+            is: 1.15,
+            ly: 262,
+            lines: [
+                ['FINANCIAL BACKTESTING', 11.5, 700]
+            ]
+        });
+        mkCard({
+            id: 'portfolio',
+            x: 1143,
+            y: 320,
+            w: 199,
+            h: 100,
+            ...stage4,
+            dl: .86,
+            icon: 'pie',
+            iy: 353,
+            is: 1.15,
+            ly: 396,
+            lines: [
+                ['PORTFOLIO METRICS', 11.5, 700]
+            ]
+        });
+        mkCard({
+            id: 'compare',
+            x: 1143,
+            y: 445,
+            w: 199,
+            h: 115,
+            ...stage4,
+            dl: .9,
+            icon: 'bars',
+            iy: 477,
+            is: 1.15,
+            ly: 522,
+            lines: [
+                ['MODEL COMPARISON', 11.5, 700]
+            ],
+            subs: ['LLM vs Baselines: LSTM,', 'Transformer, XGBoost'],
+            sy: 540
+        });
+
+        /* summary (manual) */
+        (() => {
+            const g = el('g', {
+                    class: 'node'
+                }, gN),
+                inn = el('g', {
+                    class: 'in'
+                }, g);
+            inn.style.animationDelay = '.94s';
+            el('rect', {
+                class: 'cbox',
+                x: 635,
+                y: 600,
+                width: 425,
+                height: 140,
+                rx: 12,
+                fill: '#fff',
+                stroke: '#d3dbe4',
+                'stroke-width': 1.5
+            }, inn);
+            txt(inn, 847, 629, 'Summary', 15, 700, C.ink);
+            txt(inn, 663, 663, 'Audited System:', 12, 500, C.muted, 'start');
+            txt(inn, 663, 690, 'Alerts:', 12, 500, C.muted, 'start');
+            txt(inn, 663, 717, 'Overall Trust:', 12, 500, C.muted, 'start');
+            const sysV = txt(inn, 876, 663, 'LLM-Alpha-V2', 12.5, 700, C.ink, 'start');
+            sysV.classList.add('val');
+            const alrV = txt(inn, 876, 690, '1 Drift Detected', 12.5, 700, '#e5872e', 'start');
+            alrV.classList.add('val');
+            const trV = txt(inn, 876, 717, '85.2', 12.5, 700, C.ink, 'start');
+            trV.classList.add('val');
+            const goV = txt(inn, 922, 717, '( Go )', 12.5, 800, '#2fa866', 'start');
+            nodeMap.summary = {
+                id: 'summary',
+                x: 635,
+                y: 600,
+                w: 425,
+                h: 140,
+                cx: 847,
+                cy: 670,
+                el: g,
+                in: inn,
+                edges: [],
+                sysV,
+                alrV,
+                trV,
+                goV
+            };
+            wireNode(nodeMap.summary);
+        })();
+
+        /* ============ floating cards ============ */
+        function floatCard(x, y, w, h, delay) {
+            const g = el('g', {}, gF),
+                pos = el('g', {
+                    transform: `translate(${x},${y})`
+                }, g),
+                an = el('g', {
+                    class: 'fl float',
+                    style: `--d:${delay}s`
+                }, pos);
+            el('rect', {
+                x: 0,
+                y: 0,
+                width: w,
+                height: h,
+                rx: 8,
+                fill: '#fff',
+                stroke: '#d7dee7',
+                'stroke-width': 1.3
+            }, an);
+            return an;
+        }
+        /* market_prices.csv */
+        const csvG = floatCard(215, 283, 152, 94, '5.5s');
+        txt(csvG, 10, 15, 'market_prices.csv', 8.5, 700, '#a4691a', 'start');
+        txt(csvG, 142, 15, 'vola_peak', 8, 500, '#8a97a6', 'end');
+        el('line', {
+            x1: 8,
+            y1: 20,
+            x2: 144,
+            y2: 20,
+            stroke: '#eef2f6'
+        }, csvG);
+        [
+            ['1  market_prices,8864', '0.5000'],
+            ['2  market_prices,8865', '0.5000'],
+            ['3  rsi_14,14', '0.5200'],
+            ['4  macd,12,26', '-0.4850'],
+            ['5  sma_50,50', '0.5010']
+        ].forEach((r, i) => {
+            txt(csvG, 10, 33 + i * 12, r[0], 7.6, 400, '#55636f', 'start', '0', 'mono');
+            txt(csvG, 142, 33 + i * 12, r[1], 7.6, 500, '#61758c', 'end', '0', 'mono');
+        });
+        /* llm_predictions.json */
+        const jsonG = floatCard(200, 527, 172, 110, '6.5s');
+        const JL = [
+            [
+                ['{', '#5b6b80']
+            ],
+            [
+                ['  "market"', '#2f6fc2'],
+                [': [', '#5b6b80']
+            ],
+            [
+                ['    "crypto", "fx",', '#2f8f5b']
+            ],
+            [
+                ['    "wheat", "s&p"', '#2f8f5b']
+            ],
+            [
+                ['  ],', '#5b6b80']
+            ],
+            [
+                ['  "trust_window_edge"', '#2f6fc2'],
+                [': "1w",', '#5b6b80']
+            ],
+            [
+                ['  "llm_predictions"', '#2f6fc2'],
+                [': ', '#5b6b80'],
+                ['"80"', '#d97a1f']
+            ],
+            [
+                ['}', '#5b6b80']
+            ]
+        ];
+        JL.forEach((parts, i) => {
+            const t = el('text', {
+                x: 10,
+                y: 17 + i * 12,
+                'font-size': 8.3,
+                class: 'mono'
+            }, jsonG);
+            parts.forEach(pt => {
+                const sp = el('tspan', {
+                    fill: pt[1]
+                }, t);
+                sp.textContent = pt[0];
+            });
+        });
+        /* tech indicators tooltip */
+        const techG = (() => {
+            const g = el('g', {}, gF),
+                pos = el('g', {
+                    transform: 'translate(478,343)'
+                }, g),
+                an = el('g', {
+                    class: 'popel float'
+                }, pos);
+            el('rect', {
+                x: 0,
+                y: 0,
+                width: 140,
+                height: 66,
+                rx: 7,
+                fill: '#fff',
+                stroke: '#d7dee7',
+                'stroke-width': 1.3
+            }, an);
+            txt(an, 10, 15, 'Tech Indicators', 9.5, 700, '#2c3e55', 'start');
+            [
+                ['Moving Averages'],
+                ['Volatility'],
+                ['Momentum']
+            ].forEach((r, i) => {
+                txt(an, 10, 30 + i * 12, r[0], 8.3, 500, '#55636f', 'start');
+                txt(an, 130, 30 + i * 12, 'Technical', 8.3, 500, '#8a97a6', 'end');
+            });
+            return an;
+        })();
+        /* risk audit mini chart */
+        const riskG = floatCard(988, 378, 102, 82, '4.8s');
+        txt(riskG, 8, 14, 'Risk Audit', 8, 700, '#33455c', 'start');
+        el('line', {
+            x1: 8,
+            y1: 40,
+            x2: 94,
+            y2: 40,
+            stroke: '#f2e3e3'
+        }, riskG);
+        el('line', {
+            x1: 8,
+            y1: 56,
+            x2: 94,
+            y2: 56,
+            stroke: '#f2e3e3'
+        }, riskG);
+        const riskFill = el('path', {
+            d: 'M8 30L16 34 24 31 32 40 40 38 48 46 56 44 64 52 72 50 80 58 94 63 94 72 8 72Z',
+            fill: 'rgba(224,82,82,.10)'
+        }, riskG);
+        const riskLine = el('path', {
+            d: 'M8 30L16 34 24 31 32 40 40 38 48 46 56 44 64 52 72 50 80 58 94 63',
+            fill: 'none',
+            stroke: '#e05252',
+            'stroke-width': 1.6,
+            'stroke-linejoin': 'round'
+        }, riskG);
+        /* cumulative returns mini chart */
+        const cumG = floatCard(1258, 278, 134, 112, '4.2s');
+        txt(cumG, 8, 14, 'Cumulative Returns', 8, 700, '#33455c', 'start');
+        el('line', {
+            x1: 8,
+            y1: 44,
+            x2: 126,
+            y2: 44,
+            stroke: '#eef1f5'
+        }, cumG);
+        el('line', {
+            x1: 8,
+            y1: 68,
+            x2: 126,
+            y2: 68,
+            stroke: '#eef1f5'
+        }, cumG);
+        el('line', {
+            x1: 8,
+            y1: 24,
+            x2: 8,
+            y2: 98,
+            stroke: '#c9d3de'
+        }, cumG);
+        el('line', {
+            x1: 8,
+            y1: 98,
+            x2: 126,
+            y2: 98,
+            stroke: '#c9d3de'
+        }, cumG);
+        const CUMD = [
+            ['M8 88 C30 80 44 62 62 56 S100 34 126 30', '#2fa866'],
+            ['M8 90 C34 86 50 74 68 66 S104 48 126 44', '#9b59d0'],
+            ['M8 92 C36 90 54 84 72 76 S106 62 126 58', '#3f83d6'],
+            ['M8 93 C38 92 58 88 78 82 S110 72 126 70', '#ef913b']
+        ];
+        const cumLines = CUMD.map(d => {
+            const p = el('path', {
+                d: d[0],
+                fill: 'none',
+                stroke: d[1],
+                'stroke-width': 1.7,
+                'stroke-linecap': 'round'
+            }, cumG);
+            const L = p.getTotalLength();
+            p.setAttribute('stroke-dasharray', L);
+            p.setAttribute('stroke-dashoffset', L);
+            return {
+                p,
+                L
+            };
+        });
+        const riskD = (() => {
+            const L = riskLine.getTotalLength();
+            riskLine.setAttribute('stroke-dasharray', L);
+            riskLine.setAttribute('stroke-dashoffset', L);
+            riskFill.style.opacity = 0;
+            return {
+                p: riskLine,
+                L,
+                f: riskFill
+            };
+        })();
+        /* drift alert badge */
+        const badge = (() => {
+            const g = el('g', {
+                class: 'popel',
+                transform: 'translate(663,291)'
+            }, gTop);
+            el('rect', {
+                x: 0,
+                y: 0,
+                width: 58,
+                height: 17,
+                rx: 8.5,
+                fill: '#fdeee0',
+                stroke: '#f0b26a'
+            }, g);
+            txt(g, 29, 12, '1 drift', 9, 700, '#d97a1f');
+            return g;
+        })();
+        /* hands */
+        const HAND = 'M9 11V4.6a1.6 1.6 0 0 1 3.2 0V10l4.1.9c1 .2 1.7 1.1 1.6 2.1l-.5 4.2a2.6 2.6 0 0 1-2.6 2.3h-4.2c-.9 0-1.8-.4-2.3-1.2l-2.8-3.8c-.5-.7-.4-1.7.3-2.2.6-.5 1.5-.4 2 .2l1.2 1.3z';
+        const hands = [
+            [266, 462],
+            [842, 278],
+            [842, 404],
+            [512, 472],
+            [1068, 614]
+        ].map((p, i) => {
+            const g = el('g', {
+                    class: 'hand'
+                }, gF),
+                pos = el('g', {
+                    transform: `translate(${p[0]-9},${p[1]-11}) scale(1.15)`
+                }, g),
+                an = el('g', {
+                    class: 'an',
+                    style: `--d:${(2.6+i*.4).toFixed(1)}s;animation-delay:${(-i*.7).toFixed(1)}s`
+                }, pos);
+            el('path', {
+                d: HAND,
+                fill: '#fff',
+                stroke: '#4a5568',
+                'stroke-width': 1.4,
+                'stroke-linejoin': 'round'
+            }, an);
+            return g;
+        });
+
+        function tap(i) {
+            hands[i].classList.add('tap');
+            setTimeout(() => hands[i].classList.remove('tap'), 620);
+        }
+
+        /* ============ edges ============ */
+        const NORM = {
+            l: [-1, 0],
+            r: [1, 0],
+            t: [0, -1],
+            b: [0, 1]
+        };
+
+        function anchor(n, f, off = 0) {
+            return f === 'l' ? [n.x, n.cy + off] : f === 'r' ? [n.x + n.w, n.cy + off] : f === 't' ? [n.cx + off, n.y] : [n.cx + off, n.y + n.h];
+        }
+
+        function bez(a, fa, b, fb, oa, ob) {
+            const [x1, y1] = anchor(a, fa, oa), [x2, y2] = anchor(b, fb, ob);
+            const k = Math.min(92, Math.max(28, Math.hypot(x2 - x1, y2 - y1) * .45)),
+                n1 = NORM[fa],
+                n2 = NORM[fb];
+            return `M ${x1} ${y1} C ${x1+n1[0]*k} ${y1+n1[1]*k}, ${x2+n2[0]*k} ${y2+n2[1]*k}, ${x2} ${y2}`;
+        }
+        const EDGES = [{
+            id: 'e1',
+            f: 'prices',
+            t: 'loader',
+            sf: 'r',
+            tf: 'l',
+            ob: -16
+        }, {
+            id: 'e2',
+            f: 'news',
+            t: 'loader',
+            sf: 'r',
+            tf: 'l'
+        }, {
+            id: 'e3',
+            f: 'preds',
+            t: 'loader',
+            sf: 'r',
+            tf: 'l',
+            ob: 16
+        }, {
+            id: 'e4',
+            f: 'loader',
+            t: 'feature',
+            sf: 'b',
+            tf: 't'
+        }, {
+            id: 'e5',
+            f: 'feature',
+            t: 'regime',
+            sf: 'b',
+            tf: 't'
+        }, {
+            id: 'e6',
+            f: 'regime',
+            t: 'merged',
+            sf: 'b',
+            tf: 't'
+        }, {
+            id: 'e7',
+            f: 'merged',
+            t: 'drift',
+            sf: 'r',
+            tf: 'l',
+            d: 'M 545 537 C 606 537 598 235 655 235'
+        }, {
+            id: 'e12',
+            f: 'trust',
+            t: 'backtest',
+            sf: 'r',
+            tf: 'l',
+            main: 1,
+            d: 'M 1045 475.5 H 1084 Q 1096 475.5 1096 463.5 V 247 Q 1096 235 1108 235 H 1143'
+        }, {
+            id: 'e13',
+            f: 'trust',
+            t: 'compare',
+            sf: 'r',
+            tf: 'l',
+            main: 1,
+            d: 'M 1045 475.5 H 1084 Q 1096 475.5 1096 487.5 V 490 Q 1096 502 1108 502 H 1143'
+        }, {
+            id: 'e8',
+            f: 'drift',
+            t: 'trust',
+            sf: 'b',
+            tf: 't',
+            oa: -38,
+            ob: -138,
+            wire: 1
+        }, {
+            id: 'e9',
+            f: 'hallc',
+            t: 'trust',
+            sf: 'b',
+            tf: 't',
+            oa: -2,
+            ob: 98,
+            wire: 1
+        }, {
+            id: 'e10',
+            f: 'theory',
+            t: 'trust',
+            sf: 'b',
+            tf: 't',
+            oa: 10,
+            ob: -90,
+            wire: 1
+        }, {
+            id: 'e11',
+            f: 'risk',
+            t: 'trust',
+            sf: 'b',
+            tf: 't',
+            oa: -38,
+            ob: 62,
+            wire: 1
+        }, {
+            id: 'e14',
+            f: 'gt',
+            t: 'trust',
+            sf: 't',
+            tf: 'b',
+            d: 'M 850 540 L 850 523',
+            wire: 1
+        }, ];
+        const allEdges = [],
+            edgeMap = {};
+        EDGES.forEach(d => {
+            const a = nodeMap[d.f],
+                b = nodeMap[d.t];
+            const path = d.d || bez(a, d.sf, b, d.tf, d.oa || 0, d.ob || 0);
+            const g = el('g', {
+                class: 'edge ' + (d.wire ? 'wire' : 'main')
+            }, gE);
+            const base = el('path', {
+                class: 'base',
+                d: path,
+                ...(d.wire ? {
+                    stroke: C.wire,
+                    'stroke-width': 1.8
+                } : {
+                    stroke: C.arr,
+                    'stroke-width': 3.2,
+                    'marker-end': 'url(#arr)'
+                })
+            }, g);
+            const tone = d.wire ? {
+                tr: '#cddcee',
+                hd: '#a9c4e2',
+                sp: 14,
+                w: 1.6
+            } : {
+                tr: '#8fb8e8',
+                hd: '#2f6fc2',
+                sp: 55,
+                w: 2.2
+            };
+            const comets = [],
+                nn = d.wire ? 1 : (d.n || 2),
+                L = base.getTotalLength(),
+                cyc = L + 25;
+            for (let i = 0; i < nn; i++) {
+                const cp = el('path', {
+                    class: 'comet',
+                    d: path
+                }, g);
+                cp.setAttribute('stroke-dasharray', `9 ${L+16}`);
+                cp.setAttribute('stroke-width', tone.w);
+                cp.style.stroke = tone.tr;
+                cp.style.strokeOpacity = d.wire ? .5 : .4;
+                const hd = el('circle', {
+                    class: 'hd',
+                    r: d.wire ? 2 : 2.6
+                }, g);
+                hd.style.fill = tone.hd;
+                comets.push({
+                    p: cp,
+                    h: hd,
+                    o: 9 - i * (cyc / nn) - Math.random() * cyc * .5,
+                    a: Math.random()
+                });
+            }
+            const e = {
+                id: d.id,
+                g,
+                base,
+                comets,
+                L,
+                speed: tone.sp + Math.random() * 8 - 4,
+                rate: 1,
+                rateT: 1,
+                hotv: false
+            };
+            allEdges.push(e);
+            edgeMap[d.id] = e;
+            (a.edges).push(e);
+            (b.edges).push(e);
+            g.style.animation = `popin .6s ${.5+allEdges.length*.04}s both`;
+            g.addEventListener('animationend', () => g.style.animation = '');
+        });
+
+        function hot(e, on) {
+            e.hotv = on;
+            e.g.classList.toggle('hot', on);
+            e.rateT = on ? 2.8 : 1;
+            if (!e.g.classList.contains('wire')) e.base.setAttribute('marker-end', `url(#arr${on?'H':''})`);
+        }
+        const surge = (ids, on) => ids.forEach(id => hot(edgeMap[id], on));
+        const act = (ids, on) => ids.forEach(id => nodeMap[id].el.classList.toggle('act', on));
+
+        function flash(gs, on) {
+            gs.forEach(g => g.classList.toggle('flash', on));
+        }
+
+        /* ============ chart dots ============ */
+        const FLOWS = [...cumLines.map((c, i) => ({
+            p: c.p,
+            L: c.L,
+            o: Math.random() * c.L,
+            sp: 16 + i * 3,
+            col: ['#2fa866', '#9b59d0', '#3f83d6', '#ef913b'][i],
+            on: false,
+            g: cumG
+        })), {
+            p: riskLine,
+            L: riskD.L,
+            o: 0,
+            sp: 14,
+            col: '#e05252',
+            on: false,
+            g: riskG
+        }];
+        FLOWS.forEach(f => {
+            f.hd = el('circle', {
+                r: 2.2,
+                fill: f.col,
+                opacity: 0
+            }, f.g);
+        });
+
+        /* ============ main frame loop ============ */
+        let speedMul = 1,
+            runDone = false,
+            lastT = performance.now();
+
+        function frame(t) {
+            const dt = Math.min(.05, (t - lastT) / 1000);
+            lastT = t;
+            for (const e of allEdges) {
+                e.rate += (e.rateT - e.rate) * Math.min(1, dt * 5);
+                const v = e.speed * speedMul * e.rate;
+                for (const c of e.comets) {
+                    c.o -= v * dt;
+                    if (c.o < -(e.L + 16)) c.o += e.L + 25;
+                    c.a = Math.min(1, c.a + dt * .8);
+                    c.p.setAttribute('stroke-dashoffset', c.o.toFixed(2));
+                    c.p.style.opacity = c.a;
+                    const lead = 9 - c.o;
+                    if (lead > 2 && lead < e.L - 2) {
+                        const pt = e.base.getPointAtLength(lead);
+                        c.h.style.opacity = c.a;
+                        c.h.setAttribute('cx', pt.x);
+                        c.h.setAttribute('cy', pt.y);
+                    } else c.h.style.opacity = 0;
+                }
+            }
+            for (const f of FLOWS) {
+                if (!f.on) continue;
+                f.o -= f.sp * speedMul * dt;
+                if (f.o < -(f.L + 10)) f.o += f.L + 20;
+                const lead = -f.o;
+                if (lead > 2 && lead < f.L - 2) {
+                    const pt = f.p.getPointAtLength(lead);
+                    f.hd.setAttribute('opacity', .9);
+                    f.hd.setAttribute('cx', pt.x);
+                    f.hd.setAttribute('cy', pt.y);
+                } else f.hd.setAttribute('opacity', 0);
+            }
+            if (runDone) nodeMap.trust.nd.setAttribute('transform', `rotate(${-90+180*.852+Math.sin(t/650)*1.5} 965 494)`);
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+
+        /* ============ tooltip ============ */
+        const tip = document.getElementById('tip'),
+            stageEl = document.getElementById('stage');
+
+        function showTip(name, desc, e) {
+            tip.innerHTML = `<b>${name}</b><span>${desc}</span>`;
+            tip.style.opacity = 1;
+            moveTip(e);
+        }
+
+        function moveTip(e) {
+            const r = stageEl.getBoundingClientRect();
+            tip.style.left = Math.min(e.clientX - r.left + 16, r.width - 240) + 'px';
+            tip.style.top = (e.clientY - r.top + 18) + 'px';
+        }
+
+        function hideTip() {
+            tip.style.opacity = 0;
+        }
+
+        /* ============ status + run ============ */
+        const pill = document.getElementById('pill'),
+            stTxt = document.getElementById('stTxt');
+        const setSt = (t, m) => {
+            stTxt.textContent = t;
+            pill.className = 'pill' + (m ? ' ' + m : '');
+        };
+        const runBtn = document.getElementById('runBtn'),
+            resetBtn = document.getElementById('resetBtn');
+        let running = false,
+            token = 0;
+        const W = ms => sleep(ms / speedMul);
+
+        function softReset() {
+            runDone = false;
+            resetDraw();
+            const T = nodeMap.trust,
+                gt = nodeMap.gt,
+                S = nodeMap.summary;
+            T.scoreV.textContent = '0.0';
+            T.scoreV.setAttribute('fill', '#9aa7b5');
+            T.ga.setAttribute('stroke-dashoffset', T.gl);
+            T.nd.setAttribute('transform', 'rotate(-90 965 494)');
+            gt.box.setAttribute('fill', '#fff');
+            gt.ck.setAttribute('stroke-dashoffset', gt.cl);
+            S.sysV.classList.remove('show');
+            S.alrV.classList.remove('show');
+            S.trV.classList.remove('show');
+            S.goV.style.opacity = 0;
+            S.goV.classList.remove('popin');
+            techG.classList.remove('show');
+            badge.classList.remove('show', 'gone');
+            nodeMap.merged.b.forEach(b => b.classList.remove('show'));
+            FLOWS.forEach(f => {
+                f.on = false;
+                f.hd.setAttribute('opacity', 0);
+            });
+            allEdges.forEach(e => {
+                e.hotv = false;
+                e.g.classList.remove('hot');
+                e.rateT = 1;
+            });
+            Object.values(nodeMap).forEach(n => n.el.classList.remove('act'));
+        }
+
+        async function run() {
+            if (running) return;
+            running = true;
+            const tk = ++token;
+            runBtn.disabled = true;
+            runBtn.textContent = 'RUNNING…';
+            softReset();
+            const ck = () => {
+                if (tk !== token) throw 0;
+            };
+            const Tn = nodeMap.trust,
+                gt = nodeMap.gt,
+                S = nodeMap.summary;
+            try {
+                /* 1 · inputs */
+                setSt('PHASE 1 · INGESTING INPUTS', 'run');
+                surge(['e1', 'e2', 'e3'], true);
+                act(['prices', 'news', 'preds'], true);
+                tap(0);
+                flash([csvG, jsonG], true);
+                await drawItems(1);
+                ck();
+                await W(1300);
+                ck();
+                flash([csvG, jsonG], false);
+                act(['prices', 'news', 'preds'], false);
+                surge(['e1', 'e2', 'e3'], false);
+
+                /* 2 · pipeline */
+                setSt('PHASE 2 · DATA & FEATURE PIPELINE', 'run');
+                surge(['e4', 'e5', 'e6'], true);
+                act(['loader'], true);
+                await drawItems(2);
+                ck();
+                await W(450);
+                ck();
+                act(['loader'], false);
+                act(['feature'], true);
+                techG.classList.add('show');
+                tap(3);
+                await W(650);
+                ck();
+                act(['feature'], false);
+                act(['regime'], true);
+                await W(500);
+                ck();
+                act(['regime'], false);
+                surge(['e7'], true);
+                await W(450);
+                ck();
+                nodeMap.merged.b.forEach(b => b.classList.add('show'));
+                await W(450);
+                ck();
+                surge(['e4', 'e5', 'e6', 'e7'], false);
+
+                /* 3 · audit engine */
+                setSt('PHASE 3 · RUNNING AUDIT MODULES', 'run');
+                surge(['e8', 'e9', 'e10', 'e11', 'e14'], true);
+                await drawItems(3);
+                ck();
+                const dotOf = {
+                    drift: null,
+                    hallc: null,
+                    theory: null,
+                    risk: null
+                };
+                for (const [id, extra] of[['drift', 1], ['hallc', 0], ['theory', 0], ['risk', 0]]) {
+                    act([id], true);
+                    const d = nodeMap[id].in.querySelector('.pdot');
+                    d.classList.add('blink');
+                    if (id === 'risk') tween(700 / speedMul, p => {
+                        riskD.p.setAttribute('stroke-dashoffset', riskD.L * (1 - p));
+                    }).then(() => {
+                        riskD.f.style.opacity = 1;
+                        FLOWS[4].on = true;
+                    });
+                    await W(680);
+                    ck();
+                    act([id], false);
+                    d.classList.remove('blink');
+                    if (extra) {
+                        badge.classList.add('show');
+                        await W(1000);
+                        ck();
+                        badge.classList.add('gone');
+                    }
+                }
+                setSt('TRUST SCORE COMPUTATION', 'run');
+                act(['trust'], true);
+                Tn.scoreV.setAttribute('fill', C.ink);
+                await Promise.all([
+                    tween(1500 / speedMul, p => {
+                        Tn.scoreV.textContent = (85.2 * eo(p)).toFixed(1);
+                        Tn.ga.setAttribute('stroke-dashoffset', Tn.gl * (1 - eo(p)));
+                    }, eo),
+                    tween(1500 / speedMul, p => Tn.nd.setAttribute('transform', `rotate(${-90+180*eio(p)} 965 494)`), eio)
+                ]);
+                ck();
+                gt.box.setAttribute('fill', C.b);
+                tween(350 / speedMul, p => gt.ck.setAttribute('stroke-dashoffset', gt.cl * (1 - p)));
+                await W(350);
+                ck();
+                act(['trust'], false);
+                surge(['e8', 'e9', 'e10', 'e11', 'e14'], false);
+
+                /* 4 · evaluation */
+                setSt('PHASE 4 · EVALUATION & REPORTS', 'run');
+                surge(['e12', 'e13'], true);
+                act(['backtest'], true);
+                await drawItems(4);
+                ck();
+                await W(400);
+                ck();
+                act(['backtest'], false);
+                act(['portfolio'], true);
+                await W(450);
+                ck();
+                act(['portfolio'], false);
+                act(['compare'], true);
+                for (let i = 0; i < cumLines.length; i++) {
+                    tween(900 / speedMul, p => cumLines[i].p.setAttribute('stroke-dashoffset', cumLines[i].L * (1 - p)), eo);
+                    await W(160);
+                    ck();
+                }
+                await W(500);
+                ck();
+                cumLines.forEach((c, i) => FLOWS[i].on = true);
+                act(['compare'], false);
+                surge(['e12', 'e13'], false);
+
+                /* 5 · summary */
+                setSt('PHASE 5 · FINAL SUMMARY', 'run');
+                tap(4);
+                S.sysV.classList.add('show');
+                await W(280);
+                ck();
+                S.alrV.classList.add('show');
+                await W(380);
+                ck();
+                S.trV.classList.add('show');
+                await tween(800 / speedMul, p => S.trV.textContent = (85.2 * eo(p)).toFixed(1), eo);
+                ck();
+                S.goV.style.opacity = 1;
+                S.goV.classList.add('popin');
+                runDone = true;
+                setSt('AUDIT COMPLETE · TRUST 85.2 ( GO )', 'done');
+                await W(700);
+                ck();
+            } catch (err) {
+                if (err !== 0) console.error(err);
+            }
+            running = false;
+            if (tk === token) {
+                runBtn.disabled = false;
+                runBtn.textContent = 'REPLAY AUDIT';
+            }
+        }
+
+        resetBtn.addEventListener('click', () => {
+            token++;
+            running = false;
+            softReset();
+            runBtn.disabled = false;
+            runBtn.textContent = 'RUN AUDIT';
+            setSt('RESET — IDLE', '');
+        });
+        runBtn.addEventListener('click', run);
+        document.querySelectorAll('#seg button').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('#seg button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on');
+            speedMul = parseFloat(b.dataset.s);
+        }));
+
+        /* boot — auto play once so the diagram introduces itself */
+        setSt('IDLE — AUTO-RUN QUEUED', '');
+        setTimeout(run, 900);
+    </script>
+</body>
+
+</html>
