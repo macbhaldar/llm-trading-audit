@@ -8,6 +8,9 @@ import pandas as pd
 import streamlit as st
 from .base import BaseVisualizer
 
+import plotly.express as px
+import plotly.graph_objects as go
+
 
 class GTTableVisualizer(BaseVisualizer):
     def __init__(self):
@@ -1763,3 +1766,356 @@ def model_consensus_score(
         "ConsensusScore",
         ascending=False,
     )
+
+
+
+# Prediction Diversity
+
+def prediction_diversity(
+    self,
+    df,
+):
+    diversity = (
+        df
+        .groupby(
+            [
+                "Date",
+                "Ticker",
+            ]
+        )
+        ["Prediction"]
+        .nunique()
+        .reset_index()
+    )
+    diversity.columns = [
+        "Date",
+        "Ticker",
+        "UniquePredictions",
+    ]
+    return diversity
+
+
+# High Disagreement Trades
+
+def high_disagreement_trades(
+    self,
+    df,
+):
+    diversity = self.prediction_diversity(df)
+    maximum = diversity["UniquePredictions"].max()
+    return diversity[
+        diversity["UniquePredictions"]
+        ==
+        maximum
+    ]
+
+
+# Network Summary
+
+def network_summary(
+    self,
+    df,
+):
+    edges = self.agreement_edges(df)
+    nodes = self.agreement_degree(df)
+    return {
+        "Nodes":
+            len(nodes),
+        "Edges":
+            len(edges),
+        "Average Degree":
+            round(
+                nodes["Degree"].mean(),
+                2,
+            ),
+        "Maximum Degree":
+            int(
+                nodes["Degree"].max()
+            ),
+        "Minimum Degree":
+            int(
+                nodes["Degree"].min()
+            ),
+    }
+
+
+# Consensus Report
+
+def consensus_report(
+    self,
+    df,
+):
+    return {
+        "Consensus Accuracy":
+            self.consensus_accuracy(df),
+        "Consensus Distribution":
+            self.consensus_distribution(df),
+        "Consensus Score":
+            self.model_consensus_score(df),
+        "Agreement Matrix":
+            self.model_agreement_matrix(df),
+        "Disagreement Matrix":
+            self.model_disagreement_matrix(df),
+        "Network":
+            self.network_summary(df),
+    }
+
+
+# Prediction Flow Sankey
+
+def prediction_flow_sankey(
+    self,
+    df,
+):
+    flow = self.prediction_flow(df)
+    labels = sorted(
+        set(flow["GroundTruth"]).union(
+            set(flow["Prediction"])
+        )
+    )
+    index = {
+        label: i
+        for i, label in enumerate(labels)
+    }
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(
+                label=labels,
+                pad=20,
+                thickness=20,
+            ),
+            link=dict(
+                source=[
+                    index[x]
+                    for x in flow["GroundTruth"]
+                ],
+                target=[
+                    index[x]
+                    for x in flow["Prediction"]
+                ],
+                value=flow["Count"],
+            ),
+        )
+    )
+    fig.update_layout(
+        title="Ground Truth → Prediction Flow"
+    )
+    return fig
+
+
+# Model Agreement Heatmap
+
+def agreement_heatmap(
+    self,
+    df,
+):
+    matrix = self.model_agreement_matrix(df)
+
+    fig = px.imshow(
+        matrix,
+        text_auto=".2f",
+        aspect="auto",
+        color_continuous_scale="Viridis",
+    )
+    fig.update_layout(
+        title="Model Agreement Matrix"
+    )
+    return fig
+
+
+# Model Disagreement Heatmap
+
+def disagreement_heatmap(
+    self,
+    df,
+):
+    matrix = self.model_disagreement_matrix(df)
+    fig = px.imshow(
+        matrix,
+        text_auto=".2f",
+        aspect="auto",
+        color_continuous_scale="Reds",
+    )
+    fig.update_layout(
+        title="Model Disagreement Matrix"
+    )
+    return fig
+
+
+# Consensus Score Bar Chart
+
+def consensus_bar(
+    self,
+    df,
+):
+    score = self.model_consensus_score(df)
+    fig = px.bar(
+        score,
+        x="Model",
+        y="ConsensusScore",
+        color="ConsensusScore",
+        text="ConsensusScore",
+    )
+    fig.update_layout(
+        title="Consensus Score"
+    )
+    return fig
+
+
+# Agreement Network
+
+def agreement_network(
+    self,
+    df,
+):
+    edges = self.agreement_edges(df)
+    fig = go.Figure()
+    for _, row in edges.iterrows():
+        fig.add_trace(
+            go.Scatter(
+                x=[0, 1],
+                y=[0, 1],
+                mode="lines+text",
+                text=[
+                    row["Source"],
+                    row["Target"],
+                ],
+                line=dict(
+                    width=6 * row["Weight"]
+                ),
+                showlegend=False,
+            )
+        )
+    fig.update_layout(
+        title="Model Agreement Network"
+    )
+    return fig
+
+# Prediction Diversity Histogram
+
+def diversity_histogram(
+    self,
+    df,
+):
+    diversity = self.prediction_diversity(df)
+    fig = px.histogram(
+        diversity,
+        x="UniquePredictions",
+        nbins=10,
+    )
+    fig.update_layout(
+        title="Prediction Diversity"
+    )
+    return fig
+
+
+# High Disagreement Table
+
+def show_high_disagreement(
+    self,
+    df,
+):
+    st.subheader(
+        "High Disagreement Trades"
+    )
+    st.dataframe(
+        self.high_disagreement_trades(df),
+        use_container_width=True,
+    )
+
+
+# Consensus Distribution
+
+def consensus_distribution_chart(
+    self,
+    df,
+):
+    dist = self.consensus_distribution(df)
+    fig = px.pie(
+        dist,
+        names="Level",
+        values="Cases",
+    )
+    fig.update_layout(
+        title="Consensus Distribution"
+    )
+
+    return fig
+
+
+# Model Degree Chart
+
+def agreement_degree_chart(
+    self,
+    df,
+):
+    degree = self.agreement_degree(df)
+    fig = px.bar(
+        degree,
+        x="Model",
+        y="Degree",
+        color="Degree",
+        text="Degree",
+    )
+    fig.update_layout(
+        title="Model Connectivity"
+    )
+    return fig
+
+
+# Network Statistics Table
+
+def show_network_summary(
+    self,
+    df,
+):
+    st.subheader(
+        "Consensus Network"
+    )
+    st.json(
+        self.network_summary(df)
+    )
+
+# Render Consensus Dashboard
+
+def render_consensus_dashboard(
+    self,
+    df,
+):
+    st.header(
+        "Consensus Analytics"
+    )
+
+    st.plotly_chart(
+        self.prediction_flow_sankey(df),
+        use_container_width=True,
+    )
+    st.plotly_chart(
+        self.agreement_heatmap(df),
+        use_container_width=True,
+    )
+    st.plotly_chart(
+        self.disagreement_heatmap(df),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        self.consensus_bar(df),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        self.diversity_histogram(df),
+        use_container_width=True,
+    )
+    st.plotly_chart(
+        self.consensus_distribution_chart(df),
+        use_container_width=True,
+    )
+    st.plotly_chart(
+        self.agreement_degree_chart(df),
+        use_container_width=True,
+    )
+    self.show_high_disagreement(df)
+    self.show_network_summary(df)
+
