@@ -2119,3 +2119,867 @@ def render_consensus_dashboard(
     self.show_high_disagreement(df)
     self.show_network_summary(df)
 
+
+
+# Executive Metrics
+
+def executive_metrics(
+    self,
+    df,
+):
+    """
+    Compute executive-level KPIs for the audit report.
+    """
+    scorecard = self.gt_scorecard(df)
+    metrics = {
+        "Total Trades":
+            len(df),
+        "Models":
+            df["Model"].nunique(),
+        "Assets":
+            df["Ticker"].nunique(),
+        "Accuracy":
+            scorecard["Accuracy"],
+        "Average Trust":
+            scorecard["Trust"],
+        "Average Confidence":
+            scorecard["Confidence"],
+        "Hallucination Rate":
+            scorecard["Hallucination Rate"],
+    }
+    return metrics
+
+
+# Best Performing Model
+
+def best_model(
+    self,
+    df,
+):
+    leaderboard = self.model_leaderboard(df)
+    return leaderboard.iloc[0]
+
+
+# Worst Performing Model
+
+def worst_model(
+    self,
+    df,
+):
+    leaderboard = self.model_leaderboard(df)
+    return leaderboard.iloc[-1]
+
+
+# Best Asset
+
+def best_asset(
+    self,
+    df,
+):
+    assets = self.asset_leaderboard(df)
+    return assets.iloc[0]
+
+
+# Worst Asset
+
+def worst_asset(
+    self,
+    df,
+):
+    assets = self.asset_leaderboard(df)
+    return assets.iloc[-1]
+
+
+# Top Hallucinating Model
+
+def highest_hallucination_model(
+    self,
+    df,
+):
+    ranking = self.hallucination_ranking(df)
+    return ranking.iloc[-1]
+
+
+# Most Trusted Model
+
+def most_trusted_model(
+    self,
+    df,
+):
+    trust = self.trust_ranking(df)
+    return trust.iloc[0]
+
+
+# Least Trusted Model
+
+def least_trusted_model(
+    self,
+    df,
+):
+    trust = self.trust_ranking(df)
+    return trust.iloc[-1]
+
+
+# Research Findings
+
+def research_findings(
+    self,
+    df,
+):
+    findings = []
+    best = self.best_model(df)
+    findings.append(
+        f"Best model: {best['Model']} "
+        f"(Score={best['Score']:.3f})"
+    )
+    worst = self.worst_model(df)
+    findings.append(
+        f"Weakest model: {worst['Model']} "
+        f"(Score={worst['Score']:.3f})"
+    )
+    trust = self.most_trusted_model(df)
+    findings.append(
+        f"Highest trust model: "
+        f"{trust['Model']} "
+        f"({trust['TrustScore']:.3f})"
+    )
+    hall = self.highest_hallucination_model(df)
+    findings.append(
+        f"Highest hallucination rate: "
+        f"{hall['Model']} "
+        f"({hall['HallucinationRate']:.3f})"
+    )
+    return findings
+
+
+# Recommendations
+
+def recommendations(
+    self,
+    df,
+):
+    rec = []
+    score = self.gt_scorecard(df)
+    if score["Accuracy"] < 0.70:
+        rec.append(
+            "Increase model accuracy before deployment."
+        )
+    if score["Trust"] < 0.70:
+        rec.append(
+            "Improve calibration and trust estimation."
+        )
+    if score["Hallucination Rate"] > 0.15:
+        rec.append(
+            "Reduce hallucination through GT validation."
+        )
+    if len(rec) == 0:
+        rec.append(
+            "System is suitable for pilot deployment."
+        )
+    return rec
+
+
+# Executive Summary Text
+
+def executive_summary_text(
+    self,
+    df,
+):
+    metrics = self.executive_metrics(df)
+    best = self.best_model(df)
+    summary = f"""
+
+Ground Truth Audit Summary
+
+Total Trades:
+{metrics['Total Trades']}
+
+Models Evaluated:
+{metrics['Models']}
+
+Assets:
+{metrics['Assets']}
+
+Overall Accuracy:
+{metrics['Accuracy']:.2%}
+
+Average Trust:
+{metrics['Average Trust']:.3f}
+Average Confidence:
+{metrics['Average Confidence']:.3f}
+
+Best Performing Model:
+{best['Model']}
+"""
+    return summary
+
+
+# Research Insight Table
+
+def research_insights(
+    self,
+    df,
+):
+    findings = self.research_findings(df)
+    recommendations = self.recommendations(df)
+    rows = []
+    for f in findings:
+        rows.append(
+            {
+                "Category":
+                    "Finding",
+                "Description":
+                    f,
+            }
+        )
+    for r in recommendations:
+        rows.append(
+            {
+                "Category":
+                    "Recommendation",
+                "Description":
+                    r,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+# Audit KPI Table
+
+def audit_kpi_table(
+    self,
+    df,
+):
+    metrics = self.executive_metrics(df)
+    return pd.DataFrame(
+        {
+            "Metric":
+                list(metrics.keys()),
+            "Value":
+                list(metrics.values()),
+        }
+    )
+
+
+# Show Executive Report
+
+def show_executive_report(
+    self,
+    df,
+):
+    st.header(
+        "Executive Audit Summary"
+    )
+    st.text(
+        self.executive_summary_text(df)
+    )
+    st.subheader(
+        "Key Performance Indicators"
+    )
+    st.dataframe(
+        self.audit_kpi_table(df),
+        use_container_width=True,
+    )
+    st.subheader(
+        "Research Findings"
+    )
+    st.dataframe(
+        self.research_insights(df),
+        use_container_width=True,
+    )
+
+# JSON Summary
+
+def executive_json(
+    self,
+    df,
+):
+    return {
+        "metrics":
+            self.executive_metrics(df),
+        "findings":
+            self.research_findings(df),
+        "recommendations":
+            self.recommendations(df),
+    }
+
+from datetime import datetime
+import html
+
+# HTML CSS Theme
+
+def html_theme(self):
+
+    return """
+    <style>
+    body{
+        font-family:Arial,Helvetica,sans-serif;
+        margin:40px;
+        background:#ffffff;
+        color:#222;
+    }
+    h1{
+        color:#0B5394;
+        border-bottom:3px solid #0B5394;
+        padding-bottom:8px;
+    }
+    h2{
+        color:#1F4E79;
+        margin-top:35px;
+    }
+    table{
+        border-collapse:collapse;
+        width:100%;
+        margin-top:10px;
+        margin-bottom:20px;
+    }
+    table,th,td{
+        border:1px solid #d0d0d0;
+    }
+    th{
+        background:#EAF2F8;
+        padding:8px;
+        text-align:left;
+    }
+    td{
+        padding:7px;
+    }
+    .metric{
+        display:inline-block;
+        width:220px;
+        margin:10px;
+        padding:15px;
+        border-radius:6px;
+        background:#F5F5F5;
+        border-left:6px solid #0B5394;
+    }
+    .footer{
+        margin-top:60px;
+        color:gray;
+        font-size:12px;
+    }
+    </style>
+    """
+
+
+# DataFrame -> HTML
+
+def dataframe_to_html(
+    self,
+    df,
+):
+    return df.to_html(
+        index=False,
+        border=0,
+        classes="table",
+        justify="left",
+    )
+
+
+# KPI Cards HTML
+
+def metrics_html(
+    self,
+    df,
+):
+    metrics = self.executive_metrics(df)
+    html_text = ""
+    for key, value in metrics.items():
+        html_text += f"""
+        <div class="metric">
+        <b>{html.escape(str(key))}</b><br>
+        <h2>{html.escape(str(value))}</h2>
+        </div>
+        """
+    return html_text
+
+
+# Findings HTML
+
+def findings_html(
+    self,
+    df,
+):
+    findings = self.research_findings(df)
+    text = "<ul>"
+    for item in findings:
+        text += f"<li>{html.escape(item)}</li>"
+    text += "</ul>"
+    return text
+
+
+# Recommendation HTML
+
+def recommendations_html(
+    self,
+    df,
+):
+    rec = self.recommendations(df)
+    text = "<ul>"
+    for item in rec:
+        text += f"<li>{html.escape(item)}</li>"
+    text += "</ul>"
+    return text
+
+
+# Publication Tables
+
+def publication_tables(
+    self,
+    df,
+):
+    return {
+        "Executive KPIs":
+            self.audit_kpi_table(df),
+        "Model Leaderboard":
+            self.model_leaderboard(df),
+        "Asset Leaderboard":
+            self.asset_leaderboard(df),
+        "Hallucination Ranking":
+            self.hallucination_ranking(df),
+        "Calibration Ranking":
+            self.calibration_ranking(df),
+    }
+
+
+# Publication HTML
+
+def publication_tables_html(
+    self,
+    df,
+):
+    tables = self.publication_tables(df)
+    text = ""
+    for name, table in tables.items():
+        text += f"<h2>{html.escape(name)}</h2>"
+        text += self.dataframe_to_html(table)
+    return text
+
+
+# Markdown Report
+
+def markdown_report(
+    self,
+    df,
+):
+    metrics = self.executive_metrics(df)
+    report = "# Ground Truth Audit Report\n\n"
+    report += f"Generated: {datetime.now()}\n\n"
+    report += "## Executive Metrics\n\n"
+    for k, v in metrics.items():
+        report += f"- **{k}:** {v}\n"
+    report += "\n"
+    report += "## Research Findings\n\n"
+    for item in self.research_findings(df):
+        report += f"- {item}\n"
+    report += "\n"
+    report += "## Recommendations\n\n"
+    for item in self.recommendations(df):
+        report += f"- {item}\n"
+    return report
+
+
+# HTML Report Body
+
+def html_report_body(
+    self,
+    df,
+):
+    body = f"""
+    <h1>
+    Ground Truth Audit Report
+    </h1>
+    <p>
+    Generated:
+    {datetime.now()}
+    </p>
+    <h2>
+    Executive Metrics
+    </h2>
+    {self.metrics_html(df)}
+    <h2>
+    Research Findings
+    </h2>
+    {self.findings_html(df)}
+    <h2>
+    Recommendations
+    </h2>
+    {self.recommendations_html(df)}
+    <h2>
+    Publication Tables
+    </h2>
+    {self.publication_tables_html(df)}
+    """
+    return body
+
+
+# Complete HTML String
+
+def html_report(
+    self,
+    df,
+):
+    html_doc = f"""
+    <html>
+    <head>
+    {self.html_theme()}
+    </head>
+    <body>
+    {self.html_report_body(df)}
+    <div class="footer">
+    Generated by GTTableVisualizer
+    </div>
+    </body>
+    </html>
+    """
+    return html_doc
+
+
+# Preview HTML
+
+def preview_html_report(
+    self,
+    df,
+):
+    st.components.v1.html(
+        self.html_report(df),
+        height=900,
+        scrolling=True,
+    )
+
+
+# Save HTML Report
+
+def save_html_report(
+    self,
+    df,
+    filepath="audit_report.html",
+):
+    """
+    Save complete HTML report to disk.
+    Returns
+    -------
+    str
+        Saved file path.
+    """
+    report = self.html_report(df)
+    with open(
+        filepath,
+        "w",
+        encoding="utf-8",
+    ) as f:
+        f.write(report)
+    return filepath
+
+
+# Plotly Figure -> HTML
+
+def plotly_to_html(
+    self,
+    figure,
+):
+    """
+    Convert a Plotly figure into an
+    embeddable HTML fragment.
+    """
+    if figure is None:
+        return ""
+    return figure.to_html(
+        include_plotlyjs=False,
+        full_html=False,
+    )
+
+
+# Embed Plotly Figure
+
+def embed_plotly_figure(
+    self,
+    title,
+    figure,
+):
+    """
+    Wrap Plotly figure inside
+    a publication-ready HTML section.
+    """
+    return f"""
+    <section
+        style="margin-top:35px;">
+        <h2>{html.escape(title)}</h2>
+        {self.plotly_to_html(figure)}
+    </section>
+    """
+
+# Generic Report Section
+
+def report_section(
+    self,
+    title,
+    content,
+):
+    """
+    Generic HTML section.
+    """
+    return f"""
+    <section
+        style="margin-top:40px;">
+        <h2>
+        {html.escape(title)}
+        </h2>
+        {content}
+    </section>
+    """
+
+# HTML Table Section
+
+def html_table_section(
+    self,
+    title,
+    dataframe,
+):
+    """
+    Convert dataframe into
+    a styled HTML section.
+    """
+    table = self.dataframe_to_html(
+        dataframe
+    )
+    return self.report_section(
+        title,
+        table,
+    )
+
+
+# HTML Text Section
+
+def html_text_section(
+    self,
+    title,
+    text,
+):
+    """
+    Plain text HTML section.
+    """
+    return self.report_section(
+        title,
+        f"""
+        <p>
+        {html.escape(text)}
+        </p>
+        """,
+    )
+
+# HTML Bullet List
+
+def html_bullet_list(
+    self,
+    title,
+    items,
+):
+    """
+    Create unordered list section.
+    """
+    html_list = "<ul>"
+    for item in items:
+        html_list += (
+            "<li>"
+            f"{html.escape(str(item))}"
+            "</li>"
+        )
+    html_list += "</ul>"
+    return self.report_section(
+        title,
+        html_list,
+    )
+
+
+# Report Header
+
+def report_header(
+    self,
+    title="Ground Truth Audit Report",
+):
+    """
+    HTML report header.
+    """
+    return f"""
+    <header>
+        <h1>
+        {html.escape(title)}
+        </h1>
+        <p>
+        Generated:
+        {datetime.now():%Y-%m-%d %H:%M:%S}
+        </p>
+        <hr>
+    </header>
+    """
+
+# Build HTML Sections
+
+def build_html_sections(
+    self,
+    df,
+):
+    """
+    Build all major HTML sections used in the
+    publication report.
+    """
+    sections = []
+
+    # Executive Summary
+    sections.append(
+        self.html_text_section(
+            "Executive Summary",
+            self.executive_summary_text(df),
+        )
+    )
+
+    # KPI Table
+    sections.append(
+        self.html_table_section(
+            "Key Performance Indicators",
+            self.audit_kpi_table(df),
+        )
+    )
+
+    # Research Insights
+    sections.append(
+        self.html_table_section(
+            "Research Insights",
+            self.research_insights(df),
+        )
+    )
+
+    # Leaderboard
+    sections.append(
+        self.html_table_section(
+            "Model Leaderboard",
+            self.model_leaderboard(df),
+        )
+    )
+
+    # Asset Leaderboard
+    sections.append(
+        self.html_table_section(
+            "Asset Leaderboard",
+            self.asset_leaderboard(df),
+        )
+    )
+
+    # Findings
+    sections.append(
+        self.html_bullet_list(
+            "Research Findings",
+            self.research_findings(df),
+        )
+    )
+
+    # Recommendations
+    sections.append(
+        self.html_bullet_list(
+            "Recommendations",
+            self.recommendations(df),
+        )
+    )
+    return sections
+
+
+# Assemble HTML Report
+
+def assemble_html_report(
+    self,
+    df,
+):
+    """
+    Assemble a complete HTML report.
+    """
+    report = []
+    report.append("<html>")
+    report.append("<head>")
+    report.append(self.html_theme())
+    report.append("</head>")
+    report.append("<body>")
+    report.append(
+        self.report_header()
+    )
+    for section in self.build_html_sections(df):
+        report.append(section)
+    report.append(
+        """
+        <footer
+        style="margin-top:60px;
+               font-size:12px;
+               color:gray;
+               border-top:1px solid #ccc;
+               padding-top:20px;">
+
+        Generated automatically by
+        GTTableVisualizer.
+
+        </footer>
+        """
+    )
+    report.append("</body>")
+    report.append("</html>")
+    return "\n".join(report)
+
+# Export HTML
+
+def export_html(
+    self,
+    df,
+    filepath="audit_report.html",
+):
+    html_text = self.assemble_html_report(df)
+    with open(
+        filepath,
+        "w",
+        encoding="utf-8",
+    ) as f:
+        f.write(html_text)
+    return filepath
+
+
+# HTML Download Button
+
+def html_download_button(
+    self,
+    df,
+):
+    html_text = self.assemble_html_report(df)
+    st.download_button(
+        label="📄 Download HTML Report",
+        data=html_text,
+        file_name="audit_report.html",
+        mime="text/html",
+    )
+
+# Preview HTML Report
+
+def preview_full_report(
+    self,
+    df,
+):
+    st.components.v1.html(
+        self.assemble_html_report(df),
+        height=900,
+        scrolling=True,
+    )
+
+
+# Report Dashboard
+
+def render_report_dashboard(
+    self,
+    df,
+):
+    st.title("Publication Report")
+    st.markdown(
+        """
+        Generate a publication-ready audit report
+        for Ground Truth (GT) evaluation.
+        """
+    )
+    self.html_download_button(df)
+    st.divider()
+    self.preview_full_report(df)
