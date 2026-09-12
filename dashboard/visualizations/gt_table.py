@@ -5,11 +5,31 @@ GT Table Visualizations
 from typing import List, Optional
 import numpy as np
 import pandas as pd
+import tempfile
+import os
+import json
+import zipfile
 import streamlit as st
 from .base import BaseVisualizer
 
+from pathlib import Path
+
 import plotly.express as px
 import plotly.graph_objects as go
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, Spacer, PageBreak
+from datetime import datetime
+
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate
+from reportlab.lib.pagesizes import letter
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
 
 
 class GTTableVisualizer(BaseVisualizer):
@@ -2983,3 +3003,1475 @@ def render_report_dashboard(
     self.html_download_button(df)
     st.divider()
     self.preview_full_report(df)
+
+
+# Initialize PDF Styles
+
+def init_pdf_styles(self):
+    """
+    Create reusable ReportLab paragraph styles.
+    """
+    styles = getSampleStyleSheet()
+    custom = {
+        "title": ParagraphStyle(
+            "GTTitle",
+            parent=styles["Title"],
+            alignment=TA_CENTER,
+            fontSize=24,
+            leading=30,
+            textColor=colors.darkblue,
+            spaceAfter=24,
+        ),
+        "heading": ParagraphStyle(
+            "GTHeading",
+            parent=styles["Heading2"],
+            alignment=TA_LEFT,
+            fontSize=16,
+            leading=20,
+            textColor=colors.darkblue,
+            spaceBefore=16,
+            spaceAfter=10,
+        ),
+        "normal": ParagraphStyle(
+            "GTNormal",
+            parent=styles["BodyText"],
+            fontSize=11,
+            leading=16,
+            spaceAfter=8,
+        ),
+        "small": ParagraphStyle(
+            "GTSmall",
+            parent=styles["BodyText"],
+            fontSize=9,
+            leading=12,
+            textColor=colors.grey,
+        ),
+    }
+    return custom
+
+
+# PDF Metadata
+
+def pdf_metadata(self):
+    """
+    Metadata dictionary for report.
+    """
+    return {
+        "title":
+            "Ground Truth Audit Report",
+        "author":
+            "GTTableVisualizer",
+        "subject":
+            "LLM Trading Audit",
+        "keywords":
+            "LLM,Trading,Audit,Ground Truth,Explainability",
+        "created":
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+    }
+
+# PDF Cover Page
+
+def pdf_cover_page(self):
+    """
+    Returns ReportLab flowables for
+    title page.
+    """
+    styles = self.init_pdf_styles()
+    meta = self.pdf_metadata()
+    story = []
+    story.append(
+        Spacer(
+            1,
+            1.2 * inch,
+        )
+    )
+    story.append(
+        Paragraph(
+            meta["title"],
+            styles["title"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "<b>Auditing LLM Trading:</b><br/>"
+            "Bridging Theory and Market Reality "
+            "with the GT Table",
+            styles["heading"],
+        )
+    )
+
+    story.append(
+        Spacer(
+            1,
+            0.4 * inch,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"<b>Generated:</b> "
+            f"{meta['created']}",
+            styles["normal"],
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"<b>Author:</b> "
+            f"{meta['author']}",
+            styles["normal"],
+        )
+    )
+    story.append(
+        Paragraph(
+            f"<b>Subject:</b> "
+            f"{meta['subject']}",
+            styles["normal"],
+        )
+    )
+    story.append(
+        Spacer(
+            1,
+            0.6 * inch,
+        )
+    )
+
+    story.append(
+
+        Paragraph(
+
+            """
+            This report provides a comprehensive
+            audit of Large Language Model (LLM)
+            trading systems using Ground Truth
+            (GT) validation, trust analysis,
+            calibration assessment, model
+            comparison, hallucination analysis,
+            and explainability metrics.
+            """,
+            styles["normal"],
+        )
+    )
+    story.append(
+        Spacer(
+            1,
+            0.8 * inch,
+        )
+    )
+    story.append(
+        Paragraph(
+            "Prepared automatically by "
+            "GTTableVisualizer",
+            styles["small"],
+        )
+    )
+    story.append(
+        PageBreak()
+    )
+    return story
+
+
+# PDF Executive Summary Page
+
+def pdf_executive_summary(self, df):
+    """
+    Build executive summary page.
+    """
+    styles = self.init_pdf_styles()
+    story = []
+    story.append(
+        Paragraph(
+            "Executive Summary",
+            styles["heading"],
+        )
+    )
+    story.append(
+        Paragraph(
+            self.executive_summary_text(df),
+            styles["normal"],
+        )
+    )
+    story.append(
+        Spacer(
+            1,
+            0.2 * inch,
+        )
+    )
+    return story
+
+
+# PDF KPI Table
+
+def pdf_kpi_table(self, df):
+    """
+    Build KPI table for PDF.
+    """
+    styles = self.init_pdf_styles()
+    kpi = self.audit_kpi_table(df)
+    table_data = [list(kpi.columns)]
+    table_data.extend(
+        kpi.values.tolist()
+    )
+    table = Table(
+        table_data,
+        hAlign="LEFT",
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND",
+                 (0, 0),
+                 (-1, 0),
+                 colors.HexColor("#1F4E79")),
+                ("TEXTCOLOR",
+                 (0, 0),
+                 (-1, 0),
+                 colors.white),
+                ("GRID",
+                 (0, 0),
+                 (-1, -1),
+                 0.5,
+                 colors.grey),
+                ("FONTNAME",
+                 (0, 0),
+                 (-1, 0),
+                 "Helvetica-Bold"),
+                ("BACKGROUND",
+                 (0, 1),
+                 (-1, -1),
+                 colors.whitesmoke),
+                ("BOTTOMPADDING",
+                 (0, 0),
+                 (-1, 0),
+                 10),
+            ]
+        )
+    )
+    story = [
+        Paragraph(
+            "Key Performance Indicators",
+            styles["heading"],
+        ),
+        table,
+        Spacer(1, 0.25 * inch),
+    ]
+    return story
+
+
+# PDF Findings
+
+def pdf_findings(self, df):
+    """
+    Research findings section.
+    """
+    styles = self.init_pdf_styles()
+    story = [
+        Paragraph(
+            "Research Findings",
+            styles["heading"],
+        )
+    ]
+    for item in self.research_findings(df):
+        story.append(
+            Paragraph(
+                f"• {item}",
+                styles["normal"],
+            )
+        )
+    story.append(
+        Spacer(1, 0.2 * inch)
+    )
+    return story
+
+# PDF Recommendations
+
+def pdf_recommendations(self, df):
+    """
+    Recommendations section.
+    """
+    styles = self.init_pdf_styles()
+    story = [
+        Paragraph(
+            "Recommendations",
+            styles["heading"],
+        )
+    ]
+    for item in self.recommendations(df):
+        story.append(
+            Paragraph(
+                f"• {item}",
+                styles["normal"],
+            )
+        )
+    story.append(
+        Spacer(1, 0.25 * inch)
+    )
+    return story
+
+
+# Build PDF Report
+
+def build_pdf_report(
+    self,
+    df,
+    filepath="audit_report.pdf",
+):
+    """
+    Generate complete PDF report.
+    """
+    doc = SimpleDocTemplate(
+        filepath,
+        pagesize=letter,
+    )
+    story = []
+    story.extend(
+        self.pdf_cover_page()
+    )
+    story.extend(
+        self.pdf_executive_summary(df)
+    )
+    story.extend(
+
+        self.pdf_kpi_table(df)
+    )
+    story.extend(
+        self.pdf_findings(df)
+    )
+    story.extend(
+        self.pdf_recommendations(df)
+    )
+    doc.build(story)
+    return filepath
+
+
+# Streamlit PDF Download
+
+def pdf_download_button(
+    self,
+    df,
+):
+    """
+    Create PDF in a temporary file and expose
+    it through a Streamlit download button.
+    """
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(
+        suffix=".pdf",
+        delete=False,
+    ) as tmp:
+        path = self.build_pdf_report(
+            df,
+            filepath=tmp.name,
+        )
+    with open(path, "rb") as f:
+        pdf_bytes = f.read()
+    st.download_button(
+        label="📄 Download PDF Report",
+        data=pdf_bytes,
+        file_name="audit_report.pdf",
+        mime="application/pdf",
+    )
+
+
+# Create Excel Workbook
+
+def create_excel_workbook(self):
+    """
+    Create a new OpenPyXL workbook.
+    """
+    workbook = Workbook()
+    workbook.properties.creator = "GTTableVisualizer"
+    workbook.properties.title = "Ground Truth Audit Report"
+    workbook.properties.subject = "LLM Trading Audit"
+    workbook.properties.description = (
+        "Automatically generated audit workbook."
+    )
+    return workbook
+
+
+# Excel Styles
+
+def excel_styles(self):
+    """
+    Common styles used throughout workbook.
+    """
+    styles = {
+        "header_font": Font(
+            bold=True,
+            color="FFFFFF",
+            size=12,
+        ),
+        "header_fill": PatternFill(
+            fill_type="solid",
+            fgColor="1F4E79",
+        ),
+        "body_font": Font(
+            size=11,
+        ),
+        "center": Alignment(
+            horizontal="center",
+            vertical="center",
+        ),
+        "thin_border": Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+        ),
+        "title_font": Font(
+            bold=True,
+            size=16,
+        ),
+    }
+    return styles
+
+# Auto Fit Columns
+
+def autofit_columns(
+    self,
+    worksheet,
+):
+    """
+    Automatically adjust column widths.
+    """
+    for column in worksheet.columns:
+        max_length = 0
+        column_letter = get_column_letter(
+            column[0].column
+        )
+        for cell in column:
+            try:
+                value = str(cell.value)
+                if len(value) > max_length:
+                    max_length = len(value)
+            except Exception:
+                pass
+        worksheet.column_dimensions[
+            column_letter
+        ].width = max_length + 3
+
+
+# Apply Header Style
+
+def style_header(
+    self,
+    worksheet,
+):
+    styles = self.excel_styles()
+    for cell in worksheet[1]:
+        cell.font = styles["header_font"]
+        cell.fill = styles["header_fill"]
+        cell.alignment = styles["center"]
+        cell.border = styles["thin_border"]
+
+
+# DataFrame -> Worksheet
+
+def dataframe_to_worksheet(
+    self,
+    worksheet,
+    dataframe,
+):
+    """
+    Write DataFrame into worksheet.
+    """
+    # Header
+    worksheet.append(
+        dataframe.columns.tolist()
+    )
+    # Data
+    for row in dataframe.itertuples(index=False):
+        worksheet.append(
+            list(row)
+        )
+
+    # Style
+
+    self.style_header(
+        worksheet
+    )
+    styles = self.excel_styles()
+    for row in worksheet.iter_rows(
+        min_row=2
+    ):
+        for cell in row:
+            cell.font = styles["body_font"]
+            cell.border = styles["thin_border"]
+    self.autofit_columns(
+        worksheet
+    )
+    worksheet.freeze_panes = "A2"
+
+# Create Worksheet
+
+def add_dataframe_sheet(
+    self,
+    workbook,
+    sheet_name,
+    dataframe,
+):
+    """
+    Add a new worksheet from a DataFrame.
+    """
+    worksheet = workbook.create_sheet(
+        title=sheet_name
+    )
+    self.dataframe_to_worksheet(
+        worksheet,
+        dataframe,
+    )
+    return worksheet
+
+# Remove Default Sheet
+
+def remove_default_sheet(
+    self,
+    workbook,
+):
+    if "Sheet" in workbook.sheetnames:
+        workbook.remove(
+            workbook["Sheet"]
+        )
+    return workbook
+
+
+# Executive Summary Sheet
+
+def add_executive_summary_sheet(
+    self,
+    workbook,
+    df,
+):
+    """
+    Create Executive Summary worksheet.
+    """
+    ws = workbook.create_sheet(
+        title="Executive Summary"
+    )
+    styles = self.excel_styles()
+    ws["A1"] = "Ground Truth Audit Report"
+    ws["A1"].font = styles["title_font"]
+    ws["A3"] = "Generated"
+    ws["B3"] = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+    metrics = self.executive_metrics(df)
+    start_row = 6
+    ws.cell(
+        row=start_row,
+        column=1,
+        value="Metric",
+    )
+    ws.cell(
+        row=start_row,
+        column=2,
+        value="Value",
+    )
+    self.style_header(ws)
+    row = start_row + 1
+    for key, value in metrics.items():
+        ws.cell(
+            row=row,
+            column=1,
+            value=key,
+        )
+        ws.cell(
+            row=row,
+            column=2,
+            value=value,
+        )
+        row += 1
+    ws.cell(
+        row=row + 2,
+        column=1,
+        value="Best Model",
+    )
+    ws.cell(
+        row=row + 2,
+        column=2,
+        value=self.best_model(df)["Model"],
+    )
+    ws.cell(
+        row=row + 3,
+        column=1,
+        value="Most Trusted Model",
+    )
+    ws.cell(
+        row=row + 3,
+        column=2,
+        value=self.most_trusted_model(df)["Model"],
+    )
+    ws.freeze_panes = "A6"
+    self.autofit_columns(ws)
+    return ws
+
+
+# KPI Sheet
+
+def add_kpi_sheet(
+    self,
+    workbook,
+    df,
+):
+    """
+    Create KPI worksheet.
+    """
+    worksheet = workbook.create_sheet(
+        title="KPI Dashboard"
+    )
+    kpi = self.audit_kpi_table(df)
+    self.dataframe_to_worksheet(
+        worksheet,
+        kpi,
+    )
+    worksheet.sheet_view.showGridLines = True
+    worksheet.freeze_panes = "A2"
+    return worksheet
+
+
+# Model Leaderboard Sheet
+
+def add_model_leaderboard_sheet(
+    self,
+    workbook,
+    df,
+):
+    """
+    Create Model Leaderboard worksheet.
+    """
+    worksheet = workbook.create_sheet(
+        title="Model Leaderboard"
+    )
+
+    leaderboard = self.model_leaderboard(df)
+
+    self.dataframe_to_worksheet(
+        worksheet,
+        leaderboard,
+    )
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = (
+        worksheet.dimensions
+    )
+    return worksheet
+
+
+# Workbook Summary
+
+def add_workbook_summary(
+    self,
+    workbook,
+):
+    """
+    Create workbook information sheet.
+    """
+    ws = workbook.create_sheet(
+        title="Workbook Info"
+    )
+
+    styles = self.excel_styles()
+
+    ws["A1"] = "Workbook Information"
+    ws["A1"].font = styles["title_font"]
+    rows = [
+        (
+            "Project",
+            "Auditing LLM Trading",
+        ),
+        (
+            "Component",
+            "GTTableVisualizer",
+        ),
+        (
+            "Generated",
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+        ),
+        (
+            "Workbook Version",
+            "1.0",
+        ),
+    ]
+    r = 3
+    for key, value in rows:
+        ws.cell(
+            row=r,
+            column=1,
+            value=key,
+        )
+        ws.cell(
+            row=r,
+            column=2,
+            value=value,
+        )
+        r += 1
+    self.autofit_columns(ws)
+    return ws
+
+
+# Asset Leaderboard Sheet
+
+def add_asset_leaderboard_sheet(
+    self,
+    workbook,
+    df,
+):
+    """
+    Asset performance worksheet.
+    """
+    worksheet = workbook.create_sheet(
+        title="Asset Leaderboard"
+    )
+    assets = self.asset_leaderboard(df)
+    self.dataframe_to_worksheet(
+        worksheet,
+        assets,
+    )
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = worksheet.dimensions
+    return worksheet
+
+
+# Hallucination Analysis Sheet
+
+def add_hallucination_sheet(
+    self,
+    workbook,
+    df,
+):
+    """
+    Hallucination ranking worksheet.
+    """
+    worksheet = workbook.create_sheet(
+        title="Hallucination"
+    )
+    hallucination = self.hallucination_ranking(df)
+    self.dataframe_to_worksheet(
+        worksheet,
+        hallucination,
+    )
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = worksheet.dimensions
+    return worksheet
+
+
+# Calibration Sheet
+
+def add_calibration_sheet(
+    self,
+    workbook,
+    df,
+):
+    """
+    Calibration ranking worksheet.
+    """
+    worksheet = workbook.create_sheet(
+        title="Calibration"
+    )
+    calibration = self.calibration_ranking(df)
+    self.dataframe_to_worksheet(
+        worksheet,
+        calibration,
+    )
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = worksheet.dimensions
+    return worksheet
+
+
+# Consensus Sheet
+
+def add_consensus_sheet(
+    self,
+    workbook,
+    df,
+):
+    """
+    Consensus metrics worksheet.
+    """
+    worksheet = workbook.create_sheet(
+        title="Consensus"
+    )
+    consensus = self.model_consensus_score(df)
+    self.dataframe_to_worksheet(
+        worksheet,
+        consensus,
+    )
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = worksheet.dimensions
+    return worksheet
+
+# Final Formatting
+
+def finalize_excel_workbook(
+    self,
+    workbook,
+):
+    """
+    Apply workbook-wide formatting.
+    """
+    for sheet in workbook.worksheets:
+        sheet.sheet_view.showGridLines = True
+        if sheet.max_row > 1:
+            sheet.freeze_panes = "A2"
+        sheet.auto_filter.ref = sheet.dimensions
+        self.autofit_columns(sheet)
+    return workbook
+
+
+# Build Complete Workbook
+
+def build_excel_report(
+    self,
+    df,
+):
+    """
+    Build complete Excel workbook.
+    """
+    workbook = self.create_excel_workbook()
+    self.remove_default_sheet(workbook)
+    self.add_workbook_summary(
+        workbook
+    )
+    self.add_executive_summary_sheet(
+        workbook,
+        df,
+    )
+    self.add_kpi_sheet(
+        workbook,
+        df,
+    )
+    self.add_model_leaderboard_sheet(
+        workbook,
+        df,
+    )
+    self.add_asset_leaderboard_sheet(
+        workbook,
+        df,
+    )
+    self.add_hallucination_sheet(
+        workbook,
+        df,
+    )
+    self.add_calibration_sheet(
+        workbook,
+        df,
+    )
+    self.add_consensus_sheet(
+        workbook,
+        df,
+    )
+    self.finalize_excel_workbook(
+        workbook
+    )
+    return workbook
+
+
+# Save Workbook
+
+def save_excel_report(
+    self,
+    df,
+    filepath="audit_report.xlsx",
+):
+    """
+    Save workbook to disk.
+    """
+    workbook = self.build_excel_report(df)
+    workbook.save(filepath)
+    return filepath
+
+
+# Workbook Summary
+
+def workbook_summary(
+    self,
+    workbook,
+):
+    """
+    Return workbook metadata.
+    """
+    return {
+        "Sheets": len(workbook.sheetnames),
+        "Sheet Names": workbook.sheetnames,
+        "Creator":
+            workbook.properties.creator,
+        "Title":
+            workbook.properties.title,
+        "Subject":
+            workbook.properties.subject,
+    }
+
+
+# Validate Workbook
+
+def validate_workbook(
+    self,
+    workbook,
+):
+    """
+    Validate workbook before saving.
+    """
+    errors = []
+    if len(workbook.sheetnames) == 0:
+        errors.append(
+            "Workbook has no sheets."
+        )
+    for sheet in workbook.worksheets:
+        if sheet.max_row == 0:
+            errors.append(
+                f"{sheet.title} is empty."
+            )
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+    }
+
+
+# Export Workbook
+
+def export_excel_report(
+    self,
+    df,
+    filepath="audit_report.xlsx",
+):
+    """
+    Build and export workbook.
+    """
+    workbook = self.build_excel_report(df)
+    validation = self.validate_workbook(
+        workbook
+    )
+    if not validation["valid"]:
+        raise ValueError(
+            "\n".join(
+                validation["errors"]
+            )
+        )
+    workbook.save(filepath)
+    return filepath
+
+# Streamlit Download Button
+
+def excel_download_button(
+    self,
+    df,
+):
+    """
+    Download Excel report.
+    """
+
+    import tempfile
+    import os
+    with tempfile.TemporaryDirectory() as tmp:
+        filename = os.path.join(
+            tmp,
+            "audit_report.xlsx",
+        )
+        self.export_excel_report(
+            df,
+            filename,
+        )
+        with open(
+            filename,
+            "rb",
+        ) as f:
+            data = f.read()
+    st.download_button(
+        label="📊 Download Excel Report",
+        data=data,
+        file_name="audit_report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# Show Workbook Summary
+
+def show_workbook_summary(
+    self,
+    df,
+):
+    """
+    Display workbook information.
+    """
+    workbook = self.build_excel_report(df)
+    summary = self.workbook_summary(
+        workbook
+    )
+    st.subheader(
+        "Workbook Summary"
+    )
+    st.json(summary)
+
+
+# Render Excel Export Page
+
+def render_excel_export(
+    self,
+    df,
+):
+    """
+    Streamlit Excel export page.
+    """
+    st.header(
+        "Excel Report Export"
+    )
+    st.markdown(
+        """
+        Export the complete Ground Truth
+        Audit Workbook.
+        """
+    )
+    self.show_workbook_summary(
+        df
+    )
+    st.divider()
+    self.excel_download_button(
+        df
+    )
+
+
+# Export Manager
+
+def export_manager(
+    self,
+    df,
+):
+    """
+    Central export interface.
+    """
+    st.title(
+        "Report Export Center"
+    )
+    tab1, tab2 = st.tabs(
+        [
+            "PDF",
+            "Excel",
+        ]
+    )
+    with tab1:
+        self.pdf_download_button(
+            df
+        )
+    with tab2:
+        self.render_excel_export(
+            df
+        )
+
+
+# Report Information
+
+def report_information(
+    self,
+):
+    """
+    Static report metadata.
+    """
+    return {
+        "Project":
+            "Auditing LLM Trading",
+        "Component":
+            "GTTableVisualizer",
+        "Version":
+            "1.0.0",
+        "Exports":
+            [
+                "HTML",
+                "PDF",
+                "Excel",
+            ],
+    }
+
+
+# Export DataFrame as CSV
+
+def export_csv(
+    self,
+    dataframe,
+    filepath,
+):
+    """
+    Export DataFrame to CSV.
+    """
+    dataframe.to_csv(
+        filepath,
+        index=False,
+    )
+    return filepath
+
+
+# Export All CSV Files
+
+def export_csv_package(
+    self,
+    df,
+    output_dir,
+):
+    """
+    Export all audit tables as CSV.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    files = {}
+    tables = {
+        "audit_kpis.csv":
+            self.audit_kpi_table(df),
+        "model_leaderboard.csv":
+            self.model_leaderboard(df),
+        "asset_leaderboard.csv":
+            self.asset_leaderboard(df),
+        "hallucination.csv":
+            self.hallucination_ranking(df),
+        "calibration.csv":
+            self.calibration_ranking(df),
+        "consensus.csv":
+            self.model_consensus_score(df),
+        "research_insights.csv":
+            self.research_insights(df),
+    }
+    for filename, table in tables.items():
+        path = output_dir / filename
+        self.export_csv(
+            table,
+            path,
+        )
+        files[filename] = str(path)
+    return files
+
+
+# Export Manifest
+
+def export_manifest(
+    self,
+):
+    """
+    Metadata describing exported package.
+    """
+    return {
+        "project":
+            "Auditing LLM Trading",
+        "component":
+            "GTTableVisualizer",
+        "version":
+            "1.0.0",
+        "exports":
+            [
+                "CSV",
+                "HTML",
+                "PDF",
+                "Excel",
+            ],
+    }
+
+
+# Save Manifest
+
+def save_manifest(
+    self,
+    output_dir,
+):
+    """
+    Save manifest.json
+    """
+    path = Path(output_dir) / "manifest.json"
+    with open(
+        path,
+        "w",
+        encoding="utf-8",
+    ) as f:
+        json.dump(
+            self.export_manifest(),
+            f,
+            indent=4,
+        )
+    return path
+
+
+# Create ZIP Package
+
+def create_zip_package(
+    self,
+    folder,
+    zip_path,
+):
+    """
+    Compress folder into ZIP.
+    """
+    folder = Path(folder)
+    with zipfile.ZipFile(
+        zip_path,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for file in folder.rglob("*"):
+            if file.is_file():
+                archive.write(
+                    file,
+                    arcname=file.relative_to(folder),
+                )
+    return zip_path
+
+
+# Build Complete Export Package
+
+def build_export_package(
+    self,
+    df,
+    output_dir,
+):
+    """
+    Generate all reports.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    # HTML
+    self.export_html(
+        df,
+        output_dir / "audit_report.html",
+    )
+    # PDF
+    self.build_pdf_report(
+        df,
+        output_dir / "audit_report.pdf",
+    )
+    # Excel
+    self.export_excel_report(
+        df,
+        output_dir / "audit_report.xlsx",
+    )
+
+    # CSV
+    self.export_csv_package(
+        df,
+        output_dir,
+    )
+    # Manifest
+    self.save_manifest(
+        output_dir,
+    )
+    return output_dir
+
+
+# Export ZIP Package
+
+def export_zip_package(
+    self,
+    df,
+    filepath="audit_package.zip",
+):
+    """
+    Create ZIP package.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        self.build_export_package(
+            df,
+            tmp,
+        )
+        self.create_zip_package(
+            tmp,
+            filepath,
+        )
+    return filepath
+
+
+# Package Summary
+
+def package_summary(
+    self,
+):
+    """
+    Return package contents.
+    """
+    return {
+        "Reports":
+            [
+                "HTML",
+                "PDF",
+                "Excel",
+            ],
+        "Tables":
+            [
+                "KPIs",
+                "Leaderboards",
+                "Consensus",
+                "Calibration",
+                "Hallucination",
+            ],
+        "CSV Files":
+            7,
+    }
+
+
+# Validate Export Package
+
+def validate_export_package(
+    self,
+    package_path,
+):
+    """
+    Validate that the generated ZIP package exists
+    and is non-empty.
+    """
+    if not os.path.exists(package_path):
+        return {
+            "valid": False,
+            "message": "Package does not exist."
+        }
+    if os.path.getsize(package_path) == 0:
+        return {
+            "valid": False,
+            "message": "Package is empty."
+        }
+    return {
+        "valid": True,
+        "message": "Package validation successful."
+    }
+
+
+# Build and Read ZIP Package
+
+def build_zip_bytes(
+    self,
+    df,
+):
+    """
+    Build ZIP package and return bytes.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = os.path.join(
+            tmpdir,
+            "GT_Audit_Report.zip",
+        )
+        self.export_zip_package(
+            df,
+            filepath=zip_path,
+        )
+        validation = self.validate_export_package(
+            zip_path
+        )
+        if not validation["valid"]:
+            raise RuntimeError(
+                validation["message"]
+            )
+        with open(
+            zip_path,
+            "rb",
+        ) as f:
+            return f.read()
+
+
+# Download ZIP Button
+
+def zip_download_button(
+    self,
+    df,
+):
+    """
+    Streamlit ZIP download button.
+    """
+    zip_bytes = self.build_zip_bytes(df)
+    st.download_button(
+        label="📦 Download Complete Audit Package",
+        data=zip_bytes,
+        file_name="GT_Audit_Report.zip",
+        mime="application/zip",
+    )
+
+
+# Export Status Panel
+
+def export_status_panel(
+    self,
+):
+    """
+    Display export status.
+    """
+    st.success(
+        "All export modules are available."
+    )
+    st.markdown(
+        """
+        **Supported formats**
+        - HTML Report
+        - PDF Report
+        - Excel Workbook
+        - CSV Tables
+        - ZIP Package
+        """
+    )
+
+
+# Export Information
+
+def export_information(
+    self,
+):
+    """
+    Display export metadata.
+    """
+    info = self.report_information()
+    st.subheader(
+        "Export Information"
+    )
+    st.json(info)
+
+
+# Export Progress
+
+def export_progress(
+    self,
+):
+    """
+    Simulated export progress.
+    """
+    progress = st.progress(0)
+    for value in range(0, 101, 20):
+        progress.progress(value)
+    progress.empty()
+
+
+# Unified Export Dashboard
+
+def render_export_dashboard(
+    self,
+    df,
+):
+    """
+    Render export page.
+    """
+    st.title(
+        "Export Center"
+    )
+    self.export_information()
+    st.divider()
+    self.export_status_panel()
+    st.divider()
+    self.export_progress()
+    col1, col2 = st.columns(2)
+    with col1:
+        self.pdf_download_button(df)
+        self.html_download_button(df)
+    with col2:
+        self.excel_download_button(df)
+        self.zip_download_button(df)
+
+
+# Export All Reports
+
+def export_all_reports(
+    self,
+    df,
+):
+    """
+    Main export entry point.
+    """
+    self.render_export_dashboard(df)
